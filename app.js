@@ -1,8 +1,5 @@
-// Hospital Management System DApp - JavaScript Implementation
-
-// Contract ABI - This needs to be updated with your actual ABI after deployment
-// For testing purposes this is a placeholder that will need to be replaced
-const CONTRACT_ABI = [
+// Contract ABI - Replace with your contract's ABI after deployment
+const contractABI = [
 	{
 		"inputs": [
 			{
@@ -776,323 +773,230 @@ const CONTRACT_ABI = [
 ];
 
 // Contract address - Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0x9662b63975BC1f4204f8d5aFea6910Db95cDc201"; // Replace with your actual contract address
+const contractAddress = "0x9662b63975BC1f4204f8d5aFea6910Db95cDc201"; // You'll need to fill this after deployment
 
-// Global variables
+// Web3 and Contract variables
 let web3;
 let contract;
-let accounts;
-let currentAccount;
+let userAccount;
 let isDirector = false;
-let isDoctor = false;
-let isPatient = false;
+
+// Elements
+const connectButton = document.getElementById('connect-button');
+const statusElement = document.getElementById('status');
+const accountElement = document.getElementById('account');
+const roleElement = document.getElementById('role');
+const directorSection = document.getElementById('director-section');
+const statusMessage = document.getElementById('status-message');
 
 // Initialize the application
-async function initApp() {
-    showLoading(true);
-    try {
-        // Check if MetaMask is installed
-        if (window.ethereum) {
+async function init() {
+    // Check if MetaMask is installed
+    if (window.ethereum) {
+        try {
+            // Request account access
             web3 = new Web3(window.ethereum);
-            try {
-                // Request account access
-                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                currentAccount = accounts[0];
-                
-                // Set up listeners for account/network change
-                window.ethereum.on('accountsChanged', handleAccountsChanged);
-                window.ethereum.on('chainChanged', () => window.location.reload());
-                
-                // Initialize contract
-                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-                
-                // Display connected account
-                document.getElementById('accountDisplay').textContent = 
-                    '账户 | Account: ' + currentAccount.substring(0, 6) + '...' + currentAccount.substring(38);
-                
-                // Check user roles
-                await checkRoles();
-                
-                // Show content
-                showContent(true);
-            } catch (error) {
-                console.error("User denied account access:", error);
-                showConnectionError("用户拒绝访问账户。请在MetaMask中授权访问。 | User denied account access. Please authorize in MetaMask.");
-            }
-        } else {
-            showConnectionError("请安装MetaMask浏览器扩展以使用此应用程序。 | Please install MetaMask browser extension to use this application.");
+            console.log("Web3 instance created");
+        } catch (error) {
+            showStatus("Error connecting to MetaMask", true);
+            console.error("User denied account access");
         }
-    } catch (error) {
-        console.error("Initialization error:", error);
-        showConnectionError("初始化错误：" + error.message + " | Initialization error: " + error.message);
+    } else if (window.web3) {
+        // Legacy dapp browsers
+        web3 = new Web3(window.web3.currentProvider);
+        console.log("Legacy web3 instance detected");
+    } else {
+        showStatus("MetaMask not detected. Please install MetaMask to use this application.", true);
+        console.error("No web3 detected");
     }
-    showLoading(false);
+
+    // Set up event listeners
+    connectButton.addEventListener('click', connectToMetaMask);
+    document.getElementById('add-doctor-button').addEventListener('click', addDoctor);
+    document.getElementById('revoke-doctor-button').addEventListener('click', revokeDoctor);
+    document.getElementById('get-stats-button').addEventListener('click', getHospitalStats);
+    document.getElementById('get-doctors-button').addEventListener('click', getAllDoctors);
 }
 
-// Handle account change in MetaMask
-function handleAccountsChanged(accounts) {
-    if (accounts.length === 0) {
-        showConnectionError("请连接到MetaMask。 | Please connect to MetaMask.");
-    } else if (accounts[0] !== currentAccount) {
-        currentAccount = accounts[0];
-        document.getElementById('accountDisplay').textContent = 
-            '账户 | Account: ' + currentAccount.substring(0, 6) + '...' + currentAccount.substring(38);
-        checkRoles();
-    }
-}
-
-// Check user roles (director, doctor, patient)
-async function checkRoles() {
+// Connect to MetaMask
+async function connectToMetaMask() {
     try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        userAccount = accounts[0];
+        
+        statusElement.textContent = "Connected";
+        accountElement.textContent = userAccount;
+        
+        // Initialize contract
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+        
         // Check if user is director
         const director = await contract.methods.director().call();
-        isDirector = (currentAccount.toLowerCase() === director.toLowerCase());
+        isDirector = director.toLowerCase() === userAccount.toLowerCase();
         
-        // Check if user is doctor
-        const doctorInfo = await contract.methods.doctors(currentAccount).call();
-        isDoctor = doctorInfo.isActive;
+        roleElement.textContent = isDirector ? "Director" : "Not Director";
         
-        // Check if user is patient
-        const patientInfo = await contract.methods.patients(currentAccount).call();
-        isPatient = patientInfo.exists;
+        // Show appropriate sections
+        if (isDirector) {
+            directorSection.classList.remove('hidden');
+        } else {
+            directorSection.classList.add('hidden');
+            showStatus("You are not the director of this hospital", true);
+        }
         
-        // Update role status display
-        updateRoleStatus();
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
         
-        // Setup role-specific sections
-        setupRoleSections();
     } catch (error) {
-        console.error("Error checking roles:", error);
-        showError("检查角色时出错：" + error.message + " | Error checking roles: " + error.message);
+        showStatus("Error connecting to MetaMask: " + error.message, true);
+        console.error(error);
     }
 }
 
-// Update role status display
-function updateRoleStatus() {
-    let roleText = "";
-    if (isDirector) roleText += "院长 | Director<br>";
-    if (isDoctor) roleText += "医生 | Doctor<br>";
-    if (isPatient) roleText += "患者 | Patient<br>";
-    
-    if (!roleText) {
-        roleText = "您还没有角色，请选择一个角色注册或联系管理员。 | You don't have any roles yet. Please register for a role or contact administrator.";
-        document.getElementById('roleButtons').style.display = 'block';
-    } else {
-        document.getElementById('roleButtons').style.display = 'none';
-    }
-    
-    document.getElementById('roleStatus').innerHTML = roleText;
-}
-
-// Setup role-specific sections
-function setupRoleSections() {
-    // Hide all sections first
-    document.querySelectorAll('.role-section').forEach(section => {
-        section.classList.remove('role-active');
-    });
-    
-    // Show appropriate sections based on roles
-    if (isDirector) {
-        document.getElementById('directorSection').classList.add('role-active');
-        setupDirectorSection();
-    }
-    
-    if (isDoctor) {
-        document.getElementById('doctorSection').classList.add('role-active');
-        setupDoctorSection();
-    }
-    
-    if (isPatient) {
-        document.getElementById('patientSection').classList.add('role-active');
-        setupPatientSection();
-    } else {
-        // Show the registration form if not already a patient
-        document.getElementById('patientSection').classList.add('role-active');
+// Handle account changes
+function handleAccountsChanged(accounts) {
+    if (accounts.length === 0) {
+        showStatus("Please connect to MetaMask", true);
+    } else if (accounts[0] !== userAccount) {
+        userAccount = accounts[0];
+        accountElement.textContent = userAccount;
+        // Refresh page to reset state
+        window.location.reload();
     }
 }
 
-// Setup Director Section
-function setupDirectorSection() {
-    // Set up event listeners for director actions
-    document.getElementById('addDoctorForm').addEventListener('submit', addDoctor);
-    document.getElementById('revokeDoctorForm').addEventListener('submit', revokeDoctor);
-    document.getElementById('refreshStats').addEventListener('click', refreshHospitalStats);
-    document.getElementById('refreshDoctors').addEventListener('click', refreshDoctorList);
-    
-    // Load initial data
-    refreshHospitalStats();
-    refreshDoctorList();
-}
-
-// Setup Doctor Section
-function setupDoctorSection() {
-    // Set up event listeners for doctor actions
-    document.getElementById('setFeeForm').addEventListener('submit', setAppointmentFee);
-    document.getElementById('addPatientForm').addEventListener('submit', addPatient);
-    document.getElementById('addMedicationForm').addEventListener('submit', addMedication);
-    document.getElementById('refreshDoctorAppointments').addEventListener('click', refreshDoctorAppointments);
-    
-    // Load initial data
-    refreshDoctorAppointments();
-}
-
-// Setup Patient Section
-function setupPatientSection() {
-    // Set up event listeners for patient actions
-    document.getElementById('registerPatientForm').addEventListener('submit', registerAsPatient);
-    document.getElementById('refreshMedicalRecord').addEventListener('click', refreshMedicalRecord);
-    document.getElementById('refreshAvailableDoctors').addEventListener('click', refreshAvailableDoctors);
-    document.getElementById('refreshPatientAppointments').addEventListener('click', refreshPatientAppointments);
-    document.getElementById('appointmentBookingForm').addEventListener('submit', bookAppointment);
-    
-    // Check if user is already a patient
-    if (isPatient) {
-        // Hide registration form
-        document.getElementById('registerPatientForm').parentElement.parentElement.style.display = 'none';
-        // Load patient-specific data
-        refreshMedicalRecord();
-        refreshPatientAppointments();
-    }
-}
-
-// Role button handlers
-document.getElementById('btnDirector').addEventListener('click', function() {
-    alert("只有院长才能访问院长功能。 | Only the director can access director functions.");
-});
-
-document.getElementById('btnDoctor').addEventListener('click', function() {
-    alert("只有已被添加的医生才能访问医生功能。请联系院长添加您为医生。 | Only added doctors can access doctor functions. Please contact the director to add you as a doctor.");
-});
-
-document.getElementById('btnPatient').addEventListener('click', function() {
-    document.getElementById('patientSection').classList.add('role-active');
-});
-
-// Director function implementations
-async function addDoctor(event) {
-    event.preventDefault();
+// Add a doctor
+async function addDoctor() {
     if (!isDirector) {
-        alert("只有院长可以添加医生 | Only the director can add doctors");
+        showStatus("Only the director can add doctors", true);
         return;
     }
     
-    const doctorAddress = document.getElementById('doctorAddress').value;
-    const specialty = document.getElementById('specialty').value;
-    const workingDays = document.getElementById('workingDays').value;
-    const qualification = document.getElementById('qualification').value;
+    const doctorAddress = document.getElementById('doctor-address').value;
+    const specialty = document.getElementById('doctor-specialty').value;
+    const workingDays = document.getElementById('doctor-working-days').value;
+    const qualification = document.getElementById('doctor-qualification').value;
+    
+    if (!web3.utils.isAddress(doctorAddress)) {
+        showStatus("Invalid Ethereum address", true);
+        return;
+    }
     
     try {
-        showLoading(true);
         await contract.methods.addDoctor(doctorAddress, specialty, workingDays, qualification)
-            .send({ from: currentAccount });
+            .send({ from: userAccount });
         
-        alert("医生添加成功！ | Doctor added successfully!");
-        document.getElementById('addDoctorForm').reset();
-        refreshDoctorList();
+        showStatus("Doctor added successfully!", false);
+        // Clear form
+        document.getElementById('doctor-address').value = "";
+        document.getElementById('doctor-specialty').value = "";
+        document.getElementById('doctor-working-days').value = "";
+        document.getElementById('doctor-qualification').value = "";
+        
     } catch (error) {
-        console.error("Error adding doctor:", error);
-        showError("添加医生时出错：" + error.message + " | Error adding doctor: " + error.message);
-    } finally {
-        showLoading(false);
+        showStatus("Error adding doctor: " + error.message, true);
+        console.error(error);
     }
 }
 
-async function revokeDoctor(event) {
-    event.preventDefault();
+// Revoke a doctor
+async function revokeDoctor() {
     if (!isDirector) {
-        alert("只有院长可以撤销医生资格 | Only the director can revoke doctors");
+        showStatus("Only the director can revoke doctors", true);
         return;
     }
     
-    const doctorAddress = document.getElementById('revokeDoctorAddress').value;
+    const doctorAddress = document.getElementById('revoke-doctor-address').value;
+    
+    if (!web3.utils.isAddress(doctorAddress)) {
+        showStatus("Invalid Ethereum address", true);
+        return;
+    }
     
     try {
-        showLoading(true);
         await contract.methods.revokeDoctor(doctorAddress)
-            .send({ from: currentAccount });
+            .send({ from: userAccount });
         
-        alert("医生资格撤销成功！ | Doctor revoked successfully!");
-        document.getElementById('revokeDoctorForm').reset();
-        refreshDoctorList();
+        showStatus("Doctor revoked successfully!", false);
+        document.getElementById('revoke-doctor-address').value = "";
+        
     } catch (error) {
-        console.error("Error revoking doctor:", error);
-        showError("撤销医生资格时出错：" + error.message + " | Error revoking doctor: " + error.message);
-    } finally {
-        showLoading(false);
+        showStatus("Error revoking doctor: " + error.message, true);
+        console.error(error);
     }
 }
 
-async function refreshHospitalStats() {
-    if (!isDirector) return;
+// Get hospital statistics
+async function getHospitalStats() {
+    if (!isDirector) {
+        showStatus("Only the director can view hospital statistics", true);
+        return;
+    }
     
     try {
-        showLoading(true);
-        const stats = await contract.methods.getHospitalStats().call({ from: currentAccount });
+        const stats = await contract.methods.getHospitalStats().call({ from: userAccount });
         
-        document.getElementById('doctorCount').textContent = stats.doctorCount;
-        document.getElementById('patientCount').textContent = stats.patientCount;
-        document.getElementById('appointmentCount').textContent = stats.appointmentCount;
+        const statsHTML = `
+            <p>Number of Doctors: ${stats.doctorCount}</p>
+            <p>Number of Patients: ${stats.patientCount}</p>
+            <p>Number of Appointments: ${stats.appointmentCount}</p>
+        `;
+        
+        document.getElementById('stats-result').innerHTML = statsHTML;
+        
     } catch (error) {
-        console.error("Error refreshing hospital stats:", error);
-        showError("刷新医院统计数据时出错：" + error.message + " | Error refreshing hospital stats: " + error.message);
-    } finally {
-        showLoading(false);
+        showStatus("Error getting hospital statistics: " + error.message, true);
+        console.error(error);
     }
 }
 
-async function refreshDoctorList() {
+// Get all doctors
+async function getAllDoctors() {
     try {
-        showLoading(true);
         const doctors = await contract.methods.getAllDoctors().call();
-        const doctorListElement = document.getElementById('doctorList');
-        doctorListElement.innerHTML = '';
         
         if (doctors.length === 0) {
-            doctorListElement.innerHTML = '<div class="col-12"><p>没有医生记录 | No doctors found</p></div>';
+            document.getElementById('doctors-list').innerHTML = "<p>No doctors found</p>";
             return;
         }
         
-        for (const doctorAddress of doctors) {
+        let doctorsHTML = "<ul>";
+        
+        for (let i = 0; i < doctors.length; i++) {
+            const doctorAddress = doctors[i];
             const details = await contract.methods.getDoctorDetails(doctorAddress).call();
             
-            const doctorCard = document.createElement('div');
-            doctorCard.className = 'col-md-4 mb-3';
-            doctorCard.innerHTML = `
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h6 class="card-title">医生地址 | Doctor Address</h6>
-                        <p class="card-text">${doctorAddress}</p>
-                        <p><strong>专业 | Specialty:</strong> ${details.specialty}</p>
-                        <p><strong>工作日 | Working Days:</strong> ${details.workingDays}</p>
-                        <p><strong>资质 | Qualification:</strong> ${details.qualification}</p>
-                        <p><strong>预约费用 | Fee:</strong> ${web3.utils.fromWei(details.appointmentFee, 'ether')} ETH</p>
-                    </div>
-                </div>
+            doctorsHTML += `
+                <li>
+                    <strong>Address:</strong> ${doctorAddress}<br>
+                    <strong>Specialty:</strong> ${details.specialty}<br>
+                    <strong>Working Days:</strong> ${details.workingDays}<br>
+                    <strong>Qualification:</strong> ${details.qualification}<br>
+                    <strong>Appointment Fee:</strong> ${web3.utils.fromWei(details.appointmentFee.toString(), 'ether')} ETH
+                </li>
             `;
-            doctorListElement.appendChild(doctorCard);
         }
+        
+        doctorsHTML += "</ul>";
+        document.getElementById('doctors-list').innerHTML = doctorsHTML;
+        
     } catch (error) {
-        console.error("Error refreshing doctor list:", error);
-        showError("刷新医生列表时出错：" + error.message + " | Error refreshing doctor list: " + error.message);
-    } finally {
-        showLoading(false);
+        showStatus("Error getting doctors: " + error.message, true);
+        console.error(error);
     }
 }
 
-// Doctor function implementations
-async function setAppointmentFee(event) {
-    event.preventDefault();
-    if (!isDoctor) {
-        alert("只有医生可以设置预约费用 | Only doctors can set appointment fees");
-        return;
-    }
+// Show status message
+function showStatus(message, isError) {
+    statusMessage.textContent = message;
+    statusMessage.classList.remove('hidden', 'success', 'error');
+    statusMessage.classList.add(isError ? 'error' : 'success');
     
-    const fee = document.getElementById('appointmentFee').value;
-    
-    try {
-        showLoading(true);
-        await contract.methods.setAppointmentFee(fee)
-            .send({ from: currentAccount });
-        
-        alert("预约费用设置成功！ | Appointment fee set successfully!");
-        document.getElementById('set
+    // Hide after 5 seconds
+    setTimeout(() => {
+        statusMessage.classList.add('hidden');
+    }, 5000);
+}
+
+// Initialize the app when the page loads
+window.addEventListener('DOMContentLoaded', init);
