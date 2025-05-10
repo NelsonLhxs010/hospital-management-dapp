@@ -4,1052 +4,337 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>医院管理系统 | Hospital Management System</title>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.6/dist/web3.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
-        button { padding: 8px 12px; margin: 5px 0; background: #4CAF50; color: white; border: none; cursor: pointer; }
-        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        .success { background-color: #d4edda; padding: 10px; margin: 10px 0; }
-        .error { background-color: #f8d7da; padding: 10px; margin: 10px 0; }
+        .section {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .role-btn {
+            margin: 5px;
+        }
+        .card {
+            margin-bottom: 15px;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <h1>医院管理系统 | Hospital Management System</h1>
-    <div id="status"></div>
-    
-    <div class="section">
-        <h2>连接钱包 | Connect Wallet</h2>
-        <button id="connectWallet">连接MetaMask | Connect MetaMask</button>
-        <p id="account">未连接 | Not connected</p>
-        <p id="role">角色: 未知 | Role: Unknown</p>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-12 text-center">
+                <h1>医院管理系统 | Hospital Management System</h1>
+                <p class="text-muted">基于区块链的去中心化医院管理平台 | Blockchain-based Decentralized Hospital Management Platform</p>
+                <hr>
+            </div>
+        </div>
+
+        <!-- 连接钱包 | Connect Wallet -->
+        <div class="row mb-4">
+            <div class="col-md-12 text-center">
+                <div id="wallet-status" class="alert alert-warning">
+                    请连接您的钱包以使用系统 | Please connect your wallet to use the system
+                </div>
+                <button id="connect-wallet" class="btn btn-primary">连接钱包 | Connect Wallet</button>
+                <p class="mt-2">当前地址 | Current Address: <span id="current-address">未连接 | Not Connected</span></p>
+                <div id="role-status" class="mt-2 hidden">
+                    <div class="alert alert-info">
+                        您的角色 | Your Role: <span id="user-role">正在检查 | Checking...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 角色选择 | Role Selection -->
+        <div class="row mb-4 hidden" id="role-selection">
+            <div class="col-md-12 text-center">
+                <h3>选择您的角色 | Select Your Role</h3>
+                <button class="btn btn-info role-btn" id="director-btn">院长 | Director</button>
+                <button class="btn btn-success role-btn" id="doctor-btn">医生 | Doctor</button>
+                <button class="btn btn-warning role-btn" id="patient-btn">患者 | Patient</button>
+            </div>
+        </div>
+
+        <!-- 主体内容区域 | Main Content Area -->
+        <div class="row">
+            <div class="col-md-12">
+                <!-- 院长部分 | Director Section -->
+                <div id="director-section" class="section">
+                    <h2>院长管理面板 | Director Management Panel</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">添加医生 | Add Doctor</div>
+                                <div class="card-body">
+                                    <form id="add-doctor-form">
+                                        <div class="mb-3">
+                                            <label for="doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                                            <input type="text" class="form-control" id="doctor-address" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="doctor-specialty" class="form-label">专业 | Specialty</label>
+                                            <input type="text" class="form-control" id="doctor-specialty" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="doctor-working-days" class="form-label">工作日 | Working Days</label>
+                                            <input type="text" class="form-control" id="doctor-working-days" placeholder="例如: 周一至周五 | Ex: Monday to Friday" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="doctor-qualification" class="form-label">资质 | Qualification</label>
+                                            <input type="text" class="form-control" id="doctor-qualification" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加医生 | Add Doctor</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">撤销医生权限 | Revoke Doctor</div>
+                                <div class="card-body">
+                                    <form id="revoke-doctor-form">
+                                        <div class="mb-3">
+                                            <label for="revoke-doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                                            <input type="text" class="form-control" id="revoke-doctor-address" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-danger">撤销权限 | Revoke</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">医院统计 | Hospital Statistics</div>
+                                <div class="card-body">
+                                    <button id="get-stats-btn" class="btn btn-info mb-3">获取统计数据 | Get Statistics</button>
+                                    <div id="stats-result" class="alert alert-light">
+                                        <p>医生数量 | Doctor Count: <span id="doctor-count">-</span></p>
+                                        <p>患者数量 | Patient Count: <span id="patient-count">-</span></p>
+                                        <p>预约数量 | Appointment Count: <span id="appointment-count">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">医生列表 | Doctor List</div>
+                                <div class="card-body">
+                                    <button id="get-doctors-btn" class="btn btn-info mb-3">获取医生列表 | Get Doctors</button>
+                                    <div id="doctor-list" class="list-group">
+                                        <!-- 医生列表将在这里动态生成 | Doctor list will be generated here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 医生部分 | Doctor Section -->
+                <div id="doctor-section" class="section">
+                    <h2>医生管理面板 | Doctor Management Panel</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">添加患者 | Add Patient</div>
+                                <div class="card-body">
+                                    <form id="add-patient-form">
+                                        <div class="mb-3">
+                                            <label for="patient-address" class="form-label">患者地址 | Patient Address</label>
+                                            <input type="text" class="form-control" id="patient-address" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="patient-age" class="form-label">年龄 | Age</label>
+                                            <input type="number" class="form-control" id="patient-age" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="patient-gender" class="form-label">性别 | Gender</label>
+                                            <select class="form-control" id="patient-gender" required>
+                                                <option value="">请选择 | Select</option>
+                                                <option value="Male">男 | Male</option>
+                                                <option value="Female">女 | Female</option>
+                                                <option value="Other">其他 | Other</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加患者 | Add Patient</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">添加药物记录 | Add Medication</div>
+                                <div class="card-body">
+                                    <form id="add-medication-form">
+                                        <div class="mb-3">
+                                            <label for="medication-patient-address" class="form-label">患者地址 | Patient Address</label>
+                                            <input type="text" class="form-control" id="medication-patient-address" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="medication-record" class="form-label">药物记录 | Medication</label>
+                                            <textarea class="form-control" id="medication-record" rows="3" required></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加记录 | Add Record</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">设置预约费用 | Set Appointment Fee</div>
+                                <div class="card-body">
+                                    <form id="set-fee-form">
+                                        <div class="mb-3">
+                                            <label for="appointment-fee" class="form-label">预约费用 (ETH) | Appointment Fee (ETH)</label>
+                                            <input type="number" step="0.001" class="form-control" id="appointment-fee" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">设置费用 | Set Fee</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">我的预约列表 | My Appointments</div>
+                                <div class="card-body">
+                                    <button id="get-doctor-appointments-btn" class="btn btn-info mb-3">获取预约列表 | Get Appointments</button>
+                                    <div id="doctor-appointments" class="list-group">
+                                        <!-- 预约列表将在这里动态生成 | Appointments will be generated here -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">完成预约 | Complete Appointment</div>
+                                <div class="card-body">
+                                    <form id="complete-appointment-form">
+                                        <div class="mb-3">
+                                            <label for="complete-patient-address" class="form-label">患者地址 | Patient Address</label>
+                                            <input type="text" class="form-control" id="complete-patient-address" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="appointment-index" class="form-label">预约索引 | Appointment Index</label>
+                                            <input type="number" class="form-control" id="appointment-index" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">完成预约 | Complete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 患者部分 | Patient Section -->
+                <div id="patient-section" class="section">
+                    <h2>患者服务面板 | Patient Service Panel</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">自我注册 | Self Registration</div>
+                                <div class="card-body">
+                                    <form id="register-self-form">
+                                        <div class="mb-3">
+                                            <label for="self-age" class="form-label">年龄 | Age</label>
+                                            <input type="number" class="form-control" id="self-age" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="self-gender" class="form-label">性别 | Gender</label>
+                                            <select class="form-control" id="self-gender" required>
+                                                <option value="">请选择 | Select</option>
+                                                <option value="Male">男 | Male</option>
+                                                <option value="Female">女 | Female</option>
+                                                <option value="Other">其他 | Other</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">注册 | Register</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">预约医生 | Book Appointment</div>
+                                <div class="card-body">
+                                    <form id="book-appointment-form">
+                                        <div class="mb-3">
+                                            <label for="book-doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                                            <input type="text" class="form-control" id="book-doctor-address" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="appointment-date" class="form-label">预约日期时间 | Appointment Date & Time</label>
+                                            <input type="datetime-local" class="form-control" id="appointment-date" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="appointment-payment" class="form-label">支付金额 (ETH) | Payment Amount (ETH)</label>
+                                            <input type="number" step="0.001" class="form-control" id="appointment-payment" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">预约 | Book</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">我的医疗记录 | My Medical Records</div>
+                                <div class="card-body">
+                                    <button id="get-medical-record-btn" class="btn btn-info mb-3">获取医疗记录 | Get Medical Records</button>
+                                    <div id="medical-record-result" class="alert alert-light">
+                                        <p>年龄 | Age: <span id="record-age">-</span></p>
+                                        <p>性别 | Gender: <span id="record-gender">-</span></p>
+                                        <p>药物记录 | Medication: <span id="record-medication">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">我的预约 | My Appointments</div>
+                                <div class="card-body">
+                                    <button id="get-patient-appointments-btn" class="btn btn-info mb-3">获取预约 | Get Appointments</button>
+                                    <div id="patient-appointments" class="list-group">
+                                        <!-- 预约列表将在这里动态生成 | Appointments will be generated here -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-4">
+                                <div class="card-header">可用医生 | Available Doctors</div>
+                                <div class="card-body">
+                                    <button id="get-available-doctors-btn" class="btn btn-info mb-3">获取医生列表 | Get Available Doctors</button>
+                                    <div id="available-doctors" class="list-group">
+                                        <!-- 医生列表将在这里动态生成 | Doctor list will be generated here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <div class="section">
-        <h2>院长功能 | Director Functions</h2>
-        <h3>添加医生 | Add Doctor</h3>
-        <input id="doctorAddress" placeholder="医生地址 | Doctor Address" />
-        <input id="specialty" placeholder="专业 | Specialty" />
-        <input id="workDays" placeholder="工作日 | Working Days" />
-        <input id="qualification" placeholder="资质 | Qualification" />
-        <button id="addDoctor">添加医生 | Add Doctor</button>
-        
-        <h3>医院统计 | Hospital Stats</h3>
-        <button id="getStats">获取统计 | Get Stats</button>
-        <div id="statsResult"></div>
-    </div>
-    
-    <div class="section">
-        <h2>医生功能 | Doctor Functions</h2>
-        <h3>添加患者 | Add Patient</h3>
-        <input id="patientAddress" placeholder="患者地址 | Patient Address" />
-        <input id="age" placeholder="年龄 | Age" type="number" />
-        <input id="gender" placeholder="性别 | Gender" />
-        <button id="addPatient">添加患者 | Add Patient</button>
-        
-        <h3>设置预约费用 | Set Fee</h3>
-        <input id="fee" placeholder="费用(wei) | Fee(wei)" type="number" />
-        <button id="setFee">设置费用 | Set Fee</button>
-    </div>
-    
-    <div class="section">
-        <h2>患者功能 | Patient Functions</h2>
-        <h3>自我注册 | Self Registration</h3>
-        <input id="selfAge" placeholder="年龄 | Age" type="number" />
-        <input id="selfGender" placeholder="性别 | Gender" />
-        <button id="register">注册 | Register</button>
-        
-        <h3>预约医生 | Book Appointment</h3>
-        <input id="bookDoctor" placeholder="医生地址 | Doctor Address" />
-        <input id="bookDate" placeholder="日期(Unix时间戳) | Date(Unix Timestamp)" type="number" />
-        <input id="bookAmount" placeholder="金额(wei) | Amount(wei)" type="number" />
-        <button id="book">预约 | Book</button>
-    </div>
-    
-    <div class="section">
-        <h2>查询功能 | Query Functions</h2>
-        <h3>查看所有医生 | View All Doctors</h3>
-        <button id="getAllDoctors">获取医生列表 | Get Doctors</button>
-        <div id="doctorList"></div>
+
+    <!-- 通知弹窗 | Notification Modal -->
+    <div class="modal fade" id="notification-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notification-title">通知 | Notification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="notification-body">
+                    消息内容 | Message content
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭 | Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script>
-        // 合约地址和ABI
-        const contractAddress = '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8';
-        const contractABI = [
-
-[
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "string",
-				"name": "_specialty",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_workingDays",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_qualification",
-				"type": "string"
-			}
-		],
-		"name": "addDoctor",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_patientAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "string",
-				"name": "_medication",
-				"type": "string"
-			}
-		],
-		"name": "addMedication",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_patientAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_age",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "_gender",
-				"type": "string"
-			}
-		],
-		"name": "addPatient",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "patient",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "doctor",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "date",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "fee",
-				"type": "uint256"
-			}
-		],
-		"name": "AppointmentBooked",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "patient",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "doctor",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "date",
-				"type": "uint256"
-			}
-		],
-		"name": "AppointmentCompleted",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_date",
-				"type": "uint256"
-			}
-		],
-		"name": "bookAppointment",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_patientAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_appointmentIndex",
-				"type": "uint256"
-			}
-		],
-		"name": "completeAppointment",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "doctorAddress",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "specialty",
-				"type": "string"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "workingDays",
-				"type": "string"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "qualification",
-				"type": "string"
-			}
-		],
-		"name": "DoctorAdded",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "doctorAddress",
-				"type": "address"
-			}
-		],
-		"name": "DoctorRevoked",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "patient",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "medication",
-				"type": "string"
-			}
-		],
-		"name": "MedicationAdded",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "patientAddress",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "age",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "gender",
-				"type": "string"
-			}
-		],
-		"name": "PatientAdded",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_age",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "_gender",
-				"type": "string"
-			}
-		],
-		"name": "registerAsSelfPatient",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			}
-		],
-		"name": "revokeDoctor",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_fee",
-				"type": "uint256"
-			}
-		],
-		"name": "setAppointmentFee",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "appointmentCountPerDay",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "director",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "doctorAppointments",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "patient",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "doctor",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "date",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "fee",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "completed",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "doctorList",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "doctors",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "doctorAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "string",
-				"name": "specialty",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "workingDays",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "qualification",
-				"type": "string"
-			},
-			{
-				"internalType": "uint256",
-				"name": "appointmentFee",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "isActive",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getAllDoctors",
-		"outputs": [
-			{
-				"internalType": "address[]",
-				"name": "",
-				"type": "address[]"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getDoctorAppointments",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "patient",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "doctor",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "date",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "fee",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "completed",
-						"type": "bool"
-					}
-				],
-				"internalType": "struct HospitalManagement.Appointment[]",
-				"name": "",
-				"type": "tuple[]"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			}
-		],
-		"name": "getDoctorDetails",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "specialty",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "workingDays",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "qualification",
-				"type": "string"
-			},
-			{
-				"internalType": "uint256",
-				"name": "appointmentFee",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getHospitalStats",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "doctorCount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "patientCount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "appointmentCount",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getMyAppointments",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "patient",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "doctor",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "date",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "fee",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "completed",
-						"type": "bool"
-					}
-				],
-				"internalType": "struct HospitalManagement.Appointment[]",
-				"name": "",
-				"type": "tuple[]"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getMyMedicalRecord",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "age",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "gender",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "medicationRecord",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_date",
-				"type": "uint256"
-			}
-		],
-		"name": "isDoctorAvailable",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "patientAppointments",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "patient",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "doctor",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "date",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "fee",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "completed",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "patientList",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "patients",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "patientAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "age",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "gender",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "medicationRecord",
-				"type": "string"
-			},
-			{
-				"internalType": "bool",
-				"name": "exists",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_doctorAddress",
-				"type": "address"
-			}
-		],
-		"name": "verifyDoctor",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "isDoctor",
-				"type": "bool"
-			},
-			{
-				"internalType": "string",
-				"name": "specialty",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "qualification",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-]
-
-
-
-
-
-
-        ];
-        
-        let web3;
-        let contract;
-        let currentAccount;
-        
-        // 显示状态信息
-        function showStatus(message, isSuccess) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = isSuccess ? 'success' : 'error';
-            statusDiv.textContent = message;
-        }
-        
-        // 连接钱包
-        async function connectWallet() {
-            if (window.ethereum) {
-                try {
-                    web3 = new Web3(window.ethereum);
-                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-                    currentAccount = accounts[0];
-                    document.getElementById('account').textContent = '账户 | Account: ' + currentAccount;
-                    
-                    // 初始化合约
-                    contract = new web3.eth.Contract(contractABI, contractAddress);
-                    
-                    // 检查用户角色
-                    checkRole();
-                    
-                    showStatus('钱包连接成功 | Wallet connected successfully', true);
-                } catch (error) {
-                    showStatus('连接钱包失败 | Failed to connect wallet: ' + error.message, false);
-                }
-            } else {
-                showStatus('请安装MetaMask | Please install MetaMask!', false);
-            }
-        }
-        
-        // 检查用户角色
-        async function checkRole() {
-            try {
-                const director = await contract.methods.director().call();
-                let roles = [];
-                
-                if (currentAccount.toLowerCase() === director.toLowerCase()) {
-                    roles.push('院长 | Director');
-                }
-                
-                try {
-                    const doctor = await contract.methods.doctors(currentAccount).call();
-                    if (doctor.isActive) {
-                        roles.push('医生 | Doctor');
-                    }
-                } catch (error) {
-                    console.log("Not a doctor");
-                }
-                
-                try {
-                    const patient = await contract.methods.patients(currentAccount).call();
-                    if (patient.exists) {
-                        roles.push('患者 | Patient');
-                    }
-                } catch (error) {
-                    console.log("Not a patient");
-                }
-                
-                document.getElementById('role').textContent = '角色 | Role: ' + (roles.length > 0 ? roles.join(', ') : '访客 | Guest');
-            } catch (error) {
-                console.error('检查角色失败 | Failed to check role:', error);
-            }
-        }
-        
-        // 添加医生
-        async function addDoctor() {
-            const doctorAddress = document.getElementById('doctorAddress').value;
-            const specialty = document.getElementById('specialty').value;
-            const workDays = document.getElementById('workDays').value;
-            const qualification = document.getElementById('qualification').value;
-            
-            try {
-                await contract.methods.addDoctor(doctorAddress, specialty, workDays, qualification)
-                    .send({ from: currentAccount });
-                showStatus('医生添加成功 | Doctor added successfully', true);
-            } catch (error) {
-                showStatus('添加医生失败 | Failed to add doctor: ' + error.message, false);
-            }
-        }
-        
-        // 获取医院统计
-        async function getHospitalStats() {
-            try {
-                const stats = await contract.methods.getHospitalStats().call({ from: currentAccount });
-                document.getElementById('statsResult').innerHTML = `
-                    <p>医生数量 | Doctor Count: ${stats.doctorCount}</p>
-                    <p>患者数量 | Patient Count: ${stats.patientCount}</p>
-                    <p>预约数量 | Appointment Count: ${stats.appointmentCount}</p>
-                `;
-            } catch (error) {
-                showStatus('获取统计失败 | Failed to get stats: ' + error.message, false);
-            }
-        }
-        
-        // 添加患者
-        async function addPatient() {
-            const patientAddress = document.getElementById('patientAddress').value;
-            const age = document.getElementById('age').value;
-            const gender = document.getElementById('gender').value;
-            
-            try {
-                await contract.methods.addPatient(patientAddress, age, gender)
-                    .send({ from: currentAccount });
-                showStatus('患者添加成功 | Patient added successfully', true);
-            } catch (error) {
-                showStatus('添加患者失败 | Failed to add patient: ' + error.message, false);
-            }
-        }
-        
-        // 设置预约费用
-        async function setAppointmentFee() {
-            const fee = document.getElementById('fee').value;
-            
-            try {
-                await contract.methods.setAppointmentFee(fee)
-                    .send({ from: currentAccount });
-                showStatus('预约费用设置成功 | Appointment fee set successfully', true);
-            } catch (error) {
-                showStatus('设置预约费用失败 | Failed to set fee: ' + error.message, false);
-            }
-        }
-        
-        // 自我注册
-        async function registerAsSelfPatient() {
-            const age = document.getElementById('selfAge').value;
-            const gender = document.getElementById('selfGender').value;
-            
-            try {
-                await contract.methods.registerAsSelfPatient(age, gender)
-                    .send({ from: currentAccount });
-                showStatus('注册成功 | Registration successful', true);
-                checkRole();
-            } catch (error) {
-                showStatus('注册失败 | Registration failed: ' + error.message, false);
-            }
-        }
-        
-        // 预约医生
-        async function bookAppointment() {
-            const doctorAddress = document.getElementById('bookDoctor').value;
-            const date = document.getElementById('bookDate').value;
-            const amount = document.getElementById('bookAmount').value;
-            
-            try {
-                await contract.methods.bookAppointment(doctorAddress, date)
-                    .send({ from: currentAccount, value: amount });
-                showStatus('预约成功 | Appointment booked successfully', true);
-            } catch (error) {
-                showStatus('预约失败 | Booking failed: ' + error.message, false);
-            }
-        }
-        
-        // 获取所有医生
-        async function getAllDoctors() {
-            try {
-                const doctors = await contract.methods.getAllDoctors().call();
-                
-                let html = '<h4>医生列表 | Doctor List</h4>';
-                if (doctors.length === 0) {
-                    html += '<p>没有医生 | No doctors</p>';
-                } else {
-                    html += '<ul>';
-                    for (let i = 0; i < doctors.length; i++) {
-                        html += `<li>${doctors[i]}</li>`;
-                    }
-                    html += '</ul>';
-                }
-                
-                document.getElementById('doctorList').innerHTML = html;
-            } catch (error) {
-                showStatus('获取医生列表失败 | Failed to get doctors: ' + error.message, false);
-            }
-        }
-        
-        // 设置事件监听器
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('connectWallet').addEventListener('click', connectWallet);
-            document.getElementById('addDoctor').addEventListener('click', addDoctor);
-            document.getElementById('getStats').addEventListener('click', getHospitalStats);
-            document.getElementById('addPatient').addEventListener('click', addPatient);
-            document.getElementById('setFee').addEventListener('click', setAppointmentFee);
-            document.getElementById('register').addEventListener('click', registerAsSelfPatient);
-            document.getElementById('book').addEventListener('click', bookAppointment);
-            document.getElementById('getAllDoctors').addEventListener('click', getAllDoctors);
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
-
-			
