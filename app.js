@@ -3,7 +3,6 @@
 // Contract ABI - This needs to be updated with your actual ABI after deployment
 // For testing purposes this is a placeholder that will need to be replaced
 const CONTRACT_ABI = [
-[
 	{
 		"inputs": [
 			{
@@ -774,11 +773,10 @@ const CONTRACT_ABI = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-]
 ];
 
 // Contract address - Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0xf8e81D47203A594245E36C48e151709F0C19fBe8"; // Replace with your actual contract address
+const CONTRACT_ADDRESS = "0x9662b63975BC1f4204f8d5aFea6910Db95cDc201"; // Replace with your actual contract address
 
 // Global variables
 let web3;
