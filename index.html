@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医院管理系统 | Hospital Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.6/dist/web3.min.js"></script>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
+        button { padding: 8px 12px; margin: 5px 0; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        .success { background-color: #d4edda; padding: 10px; margin: 10px 0; }
+        .error { background-color: #f8d7da; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>医院管理系统 | Hospital Management System</h1>
+    <div id="status"></div>
+    
+    <div class="section">
+        <h2>连接钱包 | Connect Wallet</h2>
+        <button id="connectWallet">连接MetaMask | Connect MetaMask</button>
+        <p id="account">未连接 | Not connected</p>
+        <p id="role">角色: 未知 | Role: Unknown</p>
+    </div>
+    
+    <div class="section">
+        <h2>院长功能 | Director Functions</h2>
+        <h3>添加医生 | Add Doctor</h3>
+        <input id="doctorAddress" placeholder="医生地址 | Doctor Address" />
+        <input id="specialty" placeholder="专业 | Specialty" />
+        <input id="workDays" placeholder="工作日 | Working Days" />
+        <input id="qualification" placeholder="资质 | Qualification" />
+        <button id="addDoctor">添加医生 | Add Doctor</button>
+        
+        <h3>医院统计 | Hospital Stats</h3>
+        <button id="getStats">获取统计 | Get Stats</button>
+        <div id="statsResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>医生功能 | Doctor Functions</h2>
+        <h3>添加患者 | Add Patient</h3>
+        <input id="patientAddress" placeholder="患者地址 | Patient Address" />
+        <input id="age" placeholder="年龄 | Age" type="number" />
+        <input id="gender" placeholder="性别 | Gender" />
+        <button id="addPatient">添加患者 | Add Patient</button>
+        
+        <h3>设置预约费用 | Set Fee</h3>
+        <input id="fee" placeholder="费用(wei) | Fee(wei)" type="number" />
+        <button id="setFee">设置费用 | Set Fee</button>
+    </div>
+    
+    <div class="section">
+        <h2>患者功能 | Patient Functions</h2>
+        <h3>自我注册 | Self Registration</h3>
+        <input id="selfAge" placeholder="年龄 | Age" type="number" />
+        <input id="selfGender" placeholder="性别 | Gender" />
+        <button id="register">注册 | Register</button>
+        
+        <h3>预约医生 | Book Appointment</h3>
+        <input id="bookDoctor" placeholder="医生地址 | Doctor Address" />
+        <input id="bookDate" placeholder="日期(Unix时间戳) | Date(Unix Timestamp)" type="number" />
+        <input id="bookAmount" placeholder="金额(wei) | Amount(wei)" type="number" />
+        <button id="book">预约 | Book</button>
+    </div>
+    
+    <div class="section">
+        <h2>查询功能 | Query Functions</h2>
+        <h3>查看所有医生 | View All Doctors</h3>
+        <button id="getAllDoctors">获取医生列表 | Get Doctors</button>
+        <div id="doctorList"></div>
+    </div>
+
+    <script>
+        // 合约地址和ABI
+        const contractAddress = '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8';
+        const contractABI = [
+            // 这里粘贴您提供的ABI (简化版，完整版在下方)
+            {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+            {"inputs":[{"internalType":"address","name":"_doctorAddress","type":"address"},{"internalType":"string","name":"_specialty","type":"string"},{"internalType":"string","name":"_workingDays","type":"string"},{"internalType":"string","name":"_qualification","type":"string"}],"name":"addDoctor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_patientAddress","type":"address"},{"internalType":"string","name":"_medication","type":"string"}],"name":"addMedication","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_patientAddress","type":"address"},{"internalType":"uint256","name":"_age","type":"uint256"},{"internalType":"string","name":"_gender","type":"string"}],"name":"addPatient","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_doctorAddress","type":"address"},{"internalType":"uint256","name":"_date","type":"uint256"}],"name":"bookAppointment","outputs":[],"stateMutability":"payable","type":"function"},
+            {"inputs":[],"name":"getAllDoctors","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"getHospitalStats","outputs":[{"internalType":"uint256","name":"doctorCount","type":"uint256"},{"internalType":"uint256","name":"patientCount","type":"uint256"},{"internalType":"uint256","name":"appointmentCount","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"_age","type":"uint256"},{"internalType":"string","name":"_gender","type":"string"}],"name":"registerAsSelfPatient","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setAppointmentFee","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"director","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+        ];
+        
+        let web3;
+        let contract;
+        let currentAccount;
+        
+        // 显示状态信息
+        function showStatus(message, isSuccess) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = isSuccess ? 'success' : 'error';
+            statusDiv.textContent = message;
+        }
+        
+        // 连接钱包
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    web3 = new Web3(window.ethereum);
+                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                    currentAccount = accounts[0];
+                    document.getElementById('account').textContent = '账户 | Account: ' + currentAccount;
+                    
+                    // 初始化合约
+                    contract = new web3.eth.Contract(contractABI, contractAddress);
+                    
+                    // 检查用户角色
+                    checkRole();
+                    
+                    showStatus('钱包连接成功 | Wallet connected successfully', true);
+                } catch (error) {
+                    showStatus('连接钱包失败 | Failed to connect wallet: ' + error.message, false);
+                }
+            } else {
+                showStatus('请安装MetaMask | Please install MetaMask!', false);
+            }
+        }
+        
+        // 检查用户角色
+        async function checkRole() {
+            try {
+                const director = await contract.methods.director().call();
+                let roles = [];
+                
+                if (currentAccount.toLowerCase() === director.toLowerCase()) {
+                    roles.push('院长 | Director');
+                }
+                
+                try {
+                    const doctor = await contract.methods.doctors(currentAccount).call();
+                    if (doctor.isActive) {
+                        roles.push('医生 | Doctor');
+                    }
+                } catch (error) {
+                    console.log("Not a doctor");
+                }
+                
+                try {
+                    const patient = await contract.methods.patients(currentAccount).call();
+                    if (patient.exists) {
+                        roles.push('患者 | Patient');
+                    }
+                } catch (error) {
+                    console.log("Not a patient");
+                }
+                
+                document.getElementById('role').textContent = '角色 | Role: ' + (roles.length > 0 ? roles.join(', ') : '访客 | Guest');
+            } catch (error) {
+                console.error('检查角色失败 | Failed to check role:', error);
+            }
+        }
+        
+        // 添加医生
+        async function addDoctor() {
+            const doctorAddress = document.getElementById('doctorAddress').value;
+            const specialty = document.getElementById('specialty').value;
+            const workDays = document.getElementById('workDays').value;
+            const qualification = document.getElementById('qualification').value;
+            
+            try {
+                await contract.methods.addDoctor(doctorAddress, specialty, workDays, qualification)
+                    .send({ from: currentAccount });
+                showStatus('医生添加成功 | Doctor added successfully', true);
+            } catch (error) {
+                showStatus('添加医生失败 | Failed to add doctor: ' + error.message, false);
+            }
+        }
+        
+        // 获取医院统计
+        async function getHospitalStats() {
+            try {
+                const stats = await contract.methods.getHospitalStats().call({ from: currentAccount });
+                document.getElementById('statsResult').innerHTML = `
+                    <p>医生数量 | Doctor Count: ${stats.doctorCount}</p>
+                    <p>患者数量 | Patient Count: ${stats.patientCount}</p>
+                    <p>预约数量 | Appointment Count: ${stats.appointmentCount}</p>
+                `;
+            } catch (error) {
+                showStatus('获取统计失败 | Failed to get stats: ' + error.message, false);
+            }
+        }
+        
+        // 添加患者
+        async function addPatient() {
+            const patientAddress = document.getElementById('patientAddress').value;
+            const age = document.getElementById('age').value;
+            const gender = document.getElementById('gender').value;
+            
+            try {
+                await contract.methods.addPatient(patientAddress, age, gender)
+                    .send({ from: currentAccount });
+                showStatus('患者添加成功 | Patient added successfully', true);
+            } catch (error) {
+                showStatus('添加患者失败 | Failed to add patient: ' + error.message, false);
+            }
+        }
+        
+        // 设置预约费用
+        async function setAppointmentFee() {
+            const fee = document.getElementById('fee').value;
+            
+            try {
+                await contract.methods.setAppointmentFee(fee)
+                    .send({ from: currentAccount });
+                showStatus('预约费用设置成功 | Appointment fee set successfully', true);
+            } catch (error) {
+                showStatus('设置预约费用失败 | Failed to set fee: ' + error.message, false);
+            }
+        }
+        
+        // 自我注册
+        async function registerAsSelfPatient() {
+            const age = document.getElementById('selfAge').value;
+            const gender = document.getElementById('selfGender').value;
+            
+            try {
+                await contract.methods.registerAsSelfPatient(age, gender)
+                    .send({ from: currentAccount });
+                showStatus('注册成功 | Registration successful', true);
+                checkRole();
+            } catch (error) {
+                showStatus('注册失败 | Registration failed: ' + error.message, false);
+            }
+        }
+        
+        // 预约医生
+        async function bookAppointment() {
+            const doctorAddress = document.getElementById('bookDoctor').value;
+            const date = document.getElementById('bookDate').value;
+            const amount = document.getElementById('bookAmount').value;
+            
+            try {
+                await contract.methods.bookAppointment(doctorAddress, date)
+                    .send({ from: currentAccount, value: amount });
+                showStatus('预约成功 | Appointment booked successfully', true);
+            } catch (error) {
+                showStatus('预约失败 | Booking failed: ' + error.message, false);
+            }
+        }
+        
+        // 获取所有医生
+        async function getAllDoctors() {
+            try {
+                const doctors = await contract.methods.getAllDoctors().call();
+                
+                let html = '<h4>医生列表 | Doctor List</h4>';
+                if (doctors.length === 0) {
+                    html += '<p>没有医生 | No doctors</p>';
+                } else {
+                    html += '<ul>';
+                    for (let i = 0; i < doctors.length; i++) {
+                        html += `<li>${doctors[i]}</li>`;
+                    }
+                    html += '</ul>';
+                }
+                
+                document.getElementById('doctorList').innerHTML = html;
+            } catch (error) {
+                showStatus('获取医生列表失败 | Failed to get doctors: ' + error.message, false);
+            }
+        }
+        
+        // 设置事件监听器
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            document.getElementById('addDoctor').addEventListener('click', addDoctor);
+            document.getElementById('getStats').addEventListener('click', getHospitalStats);
+            document.getElementById('addPatient').addEventListener('click', addPatient);
+            document.getElementById('setFee').addEventListener('click', setAppointmentFee);
+            document.getElementById('register').addEventListener('click', registerAsSelfPatient);
+            document.getElementById('book').addEventListener('click', bookAppointment);
+            document.getElementById('getAllDoctors').addEventListener('click', getAllDoctors);
+        });
+    </script>
+</body>
+</html>
+
+			
