@@ -770,233 +770,589 @@ const contractABI = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-];
+]; // You will fill this in later
 
 // Contract address - Replace with your deployed contract address
-const contractAddress = "0x9662b63975BC1f4204f8d5aFea6910Db95cDc201"; // You'll need to fill this after deployment
+const contractAddress = '0x9662b63975BC1f4204f8d5aFea6910Db95cDc201'; // 部署合约后填写合约地址 | Fill this after contract deployment
 
-// Web3 and Contract variables
+// Global variables
 let web3;
 let contract;
-let userAccount;
-let isDirector = false;
+let accounts;
+let currentAccount;
+let userRole = null;
+let toast;
+let toastBootstrap;
 
-// Elements
-const connectButton = document.getElementById('connect-button');
-const statusElement = document.getElementById('status');
-const accountElement = document.getElementById('account');
-const roleElement = document.getElementById('role');
-const directorSection = document.getElementById('director-section');
-const statusMessage = document.getElementById('status-message');
-
-// Initialize the application
-async function init() {
+// Initialize the application when the window loads
+window.addEventListener('load', async () => {
+    // Initialize Bootstrap toast
+    toast = document.getElementById('toast');
+    toastBootstrap = new bootstrap.Toast(toast);
+    
+    // Set up event listeners
+    document.getElementById('connect-wallet').addEventListener('click', connectWallet);
+    document.getElementById('director-btn').addEventListener('click', () => selectRole('director'));
+    document.getElementById('doctor-btn').addEventListener('click', () => selectRole('doctor'));
+    document.getElementById('patient-btn').addEventListener('click', () => selectRole('patient'));
+    
+    // Set up form event listeners
+    setupFormListeners();
+    
     // Check if MetaMask is installed
     if (window.ethereum) {
         try {
-            // Request account access
+            // Request account access if needed
             web3 = new Web3(window.ethereum);
-            console.log("Web3 instance created");
+            // Check if already connected
+            accounts = await web3.eth.getAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+                onWalletConnected();
+            }
         } catch (error) {
-            showStatus("Error connecting to MetaMask", true);
-            console.error("User denied account access");
+            showToast('错误 | Error', '无法连接到区块链网络 | Unable to connect to blockchain network');
+            console.error(error);
         }
-    } else if (window.web3) {
-        // Legacy dapp browsers
-        web3 = new Web3(window.web3.currentProvider);
-        console.log("Legacy web3 instance detected");
     } else {
-        showStatus("MetaMask not detected. Please install MetaMask to use this application.", true);
-        console.error("No web3 detected");
+        showToast('警告 | Warning', '请安装 MetaMask 钱包 | Please install MetaMask wallet');
     }
+});
 
-    // Set up event listeners
-    connectButton.addEventListener('click', connectToMetaMask);
-    document.getElementById('add-doctor-button').addEventListener('click', addDoctor);
-    document.getElementById('revoke-doctor-button').addEventListener('click', revokeDoctor);
-    document.getElementById('get-stats-button').addEventListener('click', getHospitalStats);
-    document.getElementById('get-doctors-button').addEventListener('click', getAllDoctors);
+// Connect wallet function
+async function connectWallet() {
+    if (window.ethereum) {
+        try {
+            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            currentAccount = accounts[0];
+            onWalletConnected();
+        } catch (error) {
+            showToast('错误 | Error', '连接钱包失败 | Failed to connect wallet');
+            console.error(error);
+        }
+    } else {
+        showToast('警告 | Warning', '请安装 MetaMask 钱包 | Please install MetaMask wallet');
+    }
 }
 
-// Connect to MetaMask
-async function connectToMetaMask() {
+// Function called after wallet is connected
+async function onWalletConnected() {
     try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        userAccount = accounts[0];
-        
-        statusElement.textContent = "Connected";
-        accountElement.textContent = userAccount;
-        
         // Initialize contract
         contract = new web3.eth.Contract(contractABI, contractAddress);
         
-        // Check if user is director
-        const director = await contract.methods.director().call();
-        isDirector = director.toLowerCase() === userAccount.toLowerCase();
+        // Update UI
+        document.getElementById('wallet-status').innerHTML = `
+            <span>钱包已连接 | Wallet connected</span><br>
+            <small>${currentAccount}</small>
+        `;
+        document.getElementById('wallet-status').classList.remove('alert-warning');
+        document.getElementById('wallet-status').classList.add('alert-success');
         
-        roleElement.textContent = isDirector ? "Director" : "Not Director";
-        
-        // Show appropriate sections
-        if (isDirector) {
-            directorSection.classList.remove('hidden');
-        } else {
-            directorSection.classList.add('hidden');
-            showStatus("You are not the director of this hospital", true);
-        }
+        // Hide connect button
+        document.getElementById('connect-wallet').style.display = 'none';
         
         // Listen for account changes
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
+        window.ethereum.on('accountsChanged', function (accounts) {
+            currentAccount = accounts[0];
+            resetUI();
+            showToast('通知 | Notification', '钱包账户已更改 | Wallet account changed');
+        });
         
+        // Check if user is a director
+        const director = await contract.methods.director().call();
+        if (currentAccount.toLowerCase() === director.toLowerCase()) {
+            selectRole('director');
+        }
     } catch (error) {
-        showStatus("Error connecting to MetaMask: " + error.message, true);
+        showToast('错误 | Error', '连接到合约失败 | Failed to connect to contract');
         console.error(error);
     }
 }
 
-// Handle account changes
-function handleAccountsChanged(accounts) {
-    if (accounts.length === 0) {
-        showStatus("Please connect to MetaMask", true);
-    } else if (accounts[0] !== userAccount) {
-        userAccount = accounts[0];
-        accountElement.textContent = userAccount;
-        // Refresh page to reset state
-        window.location.reload();
+// Set up all form event listeners
+function setupFormListeners() {
+    // Director forms
+    document.getElementById('add-doctor-form').addEventListener('submit', addDoctor);
+    document.getElementById('revoke-doctor-form').addEventListener('submit', revokeDoctor);
+    document.getElementById('get-stats-btn').addEventListener('click', getHospitalStats);
+    
+    // Doctor forms
+    document.getElementById('set-fee-form').addEventListener('submit', setAppointmentFee);
+    document.getElementById('add-patient-form').addEventListener('submit', addPatient);
+    document.getElementById('add-medication-form').addEventListener('submit', addMedication);
+    document.getElementById('get-doctor-appointments-btn').addEventListener('click', getDoctorAppointments);
+    
+    // Patient forms
+    document.getElementById('register-patient-form').addEventListener('submit', registerAsSelfPatient);
+    document.getElementById('list-doctors-btn').addEventListener('click', listAllDoctors);
+    document.getElementById('book-appointment-form').addEventListener('submit', bookAppointment);
+    document.getElementById('get-medical-record-btn').addEventListener('click', getMedicalRecord);
+    document.getElementById('get-patient-appointments-btn').addEventListener('click', getPatientAppointments);
+}
+
+// Select user role and update UI
+function selectRole(role) {
+    userRole = role;
+    
+    // Hide all sections
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    document.getElementById(`${role}-section`).classList.add('active');
+    
+    // Highlight active button
+    document.querySelectorAll('#role-selection button').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    document.getElementById(`${role}-btn`).classList.remove('btn-outline-primary');
+    document.getElementById(`${role}-btn`).classList.add('btn-primary');
+    
+    // Additional role-specific setup
+    if (role === 'doctor') {
+        checkDoctorStatus();
+    } else if (role === 'patient') {
+        checkPatientStatus();
     }
 }
 
-// Add a doctor
-async function addDoctor() {
-    if (!isDirector) {
-        showStatus("Only the director can add doctors", true);
-        return;
-    }
+// Reset UI when account changes
+function resetUI() {
+    userRole = null;
     
-    const doctorAddress = document.getElementById('doctor-address').value;
-    const specialty = document.getElementById('doctor-specialty').value;
-    const workingDays = document.getElementById('doctor-working-days').value;
-    const qualification = document.getElementById('doctor-qualification').value;
+    // Hide all sections
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
     
-    if (!web3.utils.isAddress(doctorAddress)) {
-        showStatus("Invalid Ethereum address", true);
-        return;
-    }
+    // Reset role selection
+    document.querySelectorAll('#role-selection button').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+}
+
+// Show toast notification
+function showToast(title, message) {
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-message').textContent = message;
+    toastBootstrap.show();
+}
+
+// Format timestamp to readable date
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString();
+}
+
+// Format address for display
+function formatAddress(address) {
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+}
+
+// ==================== DIRECTOR FUNCTIONS ====================
+
+// Add a new doctor
+async function addDoctor(event) {
+    event.preventDefault();
     
     try {
+        const doctorAddress = document.getElementById('doctor-address').value;
+        const specialty = document.getElementById('doctor-specialty').value;
+        const workingDays = document.getElementById('doctor-workdays').value;
+        const qualification = document.getElementById('doctor-qualification').value;
+        
         await contract.methods.addDoctor(doctorAddress, specialty, workingDays, qualification)
-            .send({ from: userAccount });
+            .send({ from: currentAccount });
         
-        showStatus("Doctor added successfully!", false);
-        // Clear form
-        document.getElementById('doctor-address').value = "";
-        document.getElementById('doctor-specialty').value = "";
-        document.getElementById('doctor-working-days').value = "";
-        document.getElementById('doctor-qualification').value = "";
-        
+        showToast('成功 | Success', '医生已添加 | Doctor added successfully');
+        event.target.reset();
     } catch (error) {
-        showStatus("Error adding doctor: " + error.message, true);
+        showToast('错误 | Error', '添加医生失败 | Failed to add doctor');
         console.error(error);
     }
 }
 
-// Revoke a doctor
-async function revokeDoctor() {
-    if (!isDirector) {
-        showStatus("Only the director can revoke doctors", true);
-        return;
-    }
-    
-    const doctorAddress = document.getElementById('revoke-doctor-address').value;
-    
-    if (!web3.utils.isAddress(doctorAddress)) {
-        showStatus("Invalid Ethereum address", true);
-        return;
-    }
+// Revoke doctor permissions
+async function revokeDoctor(event) {
+    event.preventDefault();
     
     try {
+        const doctorAddress = document.getElementById('revoke-doctor-address').value;
+        
         await contract.methods.revokeDoctor(doctorAddress)
-            .send({ from: userAccount });
+            .send({ from: currentAccount });
         
-        showStatus("Doctor revoked successfully!", false);
-        document.getElementById('revoke-doctor-address').value = "";
-        
+        showToast('成功 | Success', '医生权限已撤销 | Doctor permissions revoked');
+        event.target.reset();
     } catch (error) {
-        showStatus("Error revoking doctor: " + error.message, true);
+        showToast('错误 | Error', '撤销医生权限失败 | Failed to revoke doctor');
         console.error(error);
     }
 }
 
 // Get hospital statistics
 async function getHospitalStats() {
-    if (!isDirector) {
-        showStatus("Only the director can view hospital statistics", true);
-        return;
-    }
-    
     try {
-        const stats = await contract.methods.getHospitalStats().call({ from: userAccount });
+        const stats = await contract.methods.getHospitalStats().call({ from: currentAccount });
         
-        const statsHTML = `
-            <p>Number of Doctors: ${stats.doctorCount}</p>
-            <p>Number of Patients: ${stats.patientCount}</p>
-            <p>Number of Appointments: ${stats.appointmentCount}</p>
+        const statsElement = document.getElementById('hospital-stats');
+        statsElement.innerHTML = `
+            <p>医生数量 | Doctor Count: ${stats.doctorCount}</p>
+            <p>患者数量 | Patient Count: ${stats.patientCount}</p>
+            <p>预约数量 | Appointment Count: ${stats.appointmentCount}</p>
         `;
-        
-        document.getElementById('stats-result').innerHTML = statsHTML;
-        
+        statsElement.classList.remove('d-none');
     } catch (error) {
-        showStatus("Error getting hospital statistics: " + error.message, true);
+        showToast('错误 | Error', '获取医院统计数据失败 | Failed to get hospital statistics');
         console.error(error);
     }
 }
 
-// Get all doctors
-async function getAllDoctors() {
+// ==================== DOCTOR FUNCTIONS ====================
+
+// Check if current user is a doctor
+async function checkDoctorStatus() {
     try {
-        const doctors = await contract.methods.getAllDoctors().call();
+        const doctor = await contract.methods.doctors(currentAccount).call();
+        const statusElement = document.getElementById('doctor-status');
         
-        if (doctors.length === 0) {
-            document.getElementById('doctors-list').innerHTML = "<p>No doctors found</p>";
+        if (doctor.isActive) {
+            statusElement.innerHTML = `
+                <p>医生状态: 活跃 | Doctor Status: Active</p>
+                <p>专业: ${doctor.specialty} | Specialty: ${doctor.specialty}</p>
+                <p>工作日: ${doctor.workingDays} | Working Days: ${doctor.workingDays}</p>
+                <p>资质: ${doctor.qualification} | Qualification: ${doctor.qualification}</p>
+                <p>预约费用: ${doctor.appointmentFee} Wei | Appointment Fee: ${doctor.appointmentFee} Wei</p>
+            `;
+            statusElement.classList.remove('alert-info', 'alert-danger');
+            statusElement.classList.add('alert-success');
+        } else {
+            statusElement.textContent = '您不是活跃医生或尚未注册 | You are not an active doctor or not registered';
+            statusElement.classList.remove('alert-info', 'alert-success');
+            statusElement.classList.add('alert-danger');
+        }
+    } catch (error) {
+        console.error(error);
+        const statusElement = document.getElementById('doctor-status');
+        statusElement.textContent = '检查医生状态失败 | Failed to check doctor status';
+        statusElement.classList.remove('alert-info', 'alert-success');
+        statusElement.classList.add('alert-danger');
+    }
+}
+
+// Set appointment fee
+async function setAppointmentFee(event) {
+    event.preventDefault();
+    
+    try {
+        const fee = document.getElementById('appointment-fee').value;
+        
+        await contract.methods.setAppointmentFee(fee)
+            .send({ from: currentAccount });
+        
+        showToast('成功 | Success', '预约费用已设置 | Appointment fee set successfully');
+        event.target.reset();
+        checkDoctorStatus(); // Refresh doctor status
+    } catch (error) {
+        showToast('错误 | Error', '设置预约费用失败 | Failed to set appointment fee');
+        console.error(error);
+    }
+}
+
+// Add a new patient
+async function addPatient(event) {
+    event.preventDefault();
+    
+    try {
+        const patientAddress = document.getElementById('patient-address').value;
+        const age = document.getElementById('patient-age').value;
+        const gender = document.getElementById('patient-gender').value;
+        
+        await contract.methods.addPatient(patientAddress, age, gender)
+            .send({ from: currentAccount });
+        
+        showToast('成功 | Success', '患者已添加 | Patient added successfully');
+        event.target.reset();
+    } catch (error) {
+        showToast('错误 | Error', '添加患者失败 | Failed to add patient');
+        console.error(error);
+    }
+}
+
+// Add medication record
+async function addMedication(event) {
+    event.preventDefault();
+    
+    try {
+        const patientAddress = document.getElementById('medication-patient-address').value;
+        const medication = document.getElementById('medication-record').value;
+        
+        await contract.methods.addMedication(patientAddress, medication)
+            .send({ from: currentAccount });
+        
+        showToast('成功 | Success', '医疗记录已添加 | Medication record added successfully');
+        event.target.reset();
+    } catch (error) {
+        showToast('错误 | Error', '添加医疗记录失败 | Failed to add medication record');
+        console.error(error);
+    }
+}
+
+// Get doctor's appointments
+async function getDoctorAppointments() {
+    try {
+        const appointments = await contract.methods.getDoctorAppointments().call({ from: currentAccount });
+        
+        const appointmentsElement = document.getElementById('doctor-appointments');
+        if (appointments.length === 0) {
+            appointmentsElement.innerHTML = '<div class="alert alert-info">没有预约记录 | No appointments found</div>';
             return;
         }
         
-        let doctorsHTML = "<ul>";
-        
-        for (let i = 0; i < doctors.length; i++) {
-            const doctorAddress = doctors[i];
-            const details = await contract.methods.getDoctorDetails(doctorAddress).call();
+        let html = '<div class="list-group">';
+        appointments.forEach((appointment, index) => {
+            const status = appointment.completed ? 
+                '<span class="badge bg-success">已完成 | Completed</span>' : 
+                `<button class="btn btn-sm btn-primary complete-appointment" data-patient="${appointment.patient}" data-index="${index}">完成预约 | Complete</button>`;
             
-            doctorsHTML += `
-                <li>
-                    <strong>Address:</strong> ${doctorAddress}<br>
-                    <strong>Specialty:</strong> ${details.specialty}<br>
-                    <strong>Working Days:</strong> ${details.workingDays}<br>
-                    <strong>Qualification:</strong> ${details.qualification}<br>
-                    <strong>Appointment Fee:</strong> ${web3.utils.fromWei(details.appointmentFee.toString(), 'ether')} ETH
-                </li>
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">患者: ${formatAddress(appointment.patient)} | Patient: ${formatAddress(appointment.patient)}</h5>
+                        <small>预约费用: ${appointment.fee} Wei | Fee: ${appointment.fee} Wei</small>
+                    </div>
+                    <p class="mb-1">日期: ${formatTimestamp(appointment.date)} | Date: ${formatTimestamp(appointment.date)}</p>
+                    <div class="d-flex justify-content-end">
+                        ${status}
+                    </div>
+                </div>
             `;
-        }
+        });
+        html += '</div>';
         
-        doctorsHTML += "</ul>";
-        document.getElementById('doctors-list').innerHTML = doctorsHTML;
+        appointmentsElement.innerHTML = html;
         
+        // Add event listeners for complete buttons
+        document.querySelectorAll('.complete-appointment').forEach(button => {
+            button.addEventListener('click', async () => {
+                const patientAddress = button.getAttribute('data-patient');
+                const appointmentIndex = button.getAttribute('data-index');
+                
+                try {
+                    await contract.methods.completeAppointment(patientAddress, appointmentIndex)
+                        .send({ from: currentAccount });
+                    
+                    showToast('成功 | Success', '预约已完成 | Appointment completed successfully');
+                    getDoctorAppointments(); // Refresh appointments
+                } catch (error) {
+                    showToast('错误 | Error', '完成预约失败 | Failed to complete appointment');
+                    console.error(error);
+                }
+            });
+        });
     } catch (error) {
-        showStatus("Error getting doctors: " + error.message, true);
+        showToast('错误 | Error', '获取预约失败 | Failed to get appointments');
         console.error(error);
     }
 }
 
-// Show status message
-function showStatus(message, isError) {
-    statusMessage.textContent = message;
-    statusMessage.classList.remove('hidden', 'success', 'error');
-    statusMessage.classList.add(isError ? 'error' : 'success');
-    
-    // Hide after 5 seconds
-    setTimeout(() => {
-        statusMessage.classList.add('hidden');
-    }, 5000);
+// ==================== PATIENT FUNCTIONS ====================
+
+// Check if current user is a patient
+async function checkPatientStatus() {
+    try {
+        const patient = await contract.methods.patients(currentAccount).call();
+        const statusElement = document.getElementById('patient-status');
+        const registrationForm = document.getElementById('patient-registration');
+        
+        if (patient.exists) {
+            statusElement.innerHTML = `
+                <p>患者状态: 已注册 | Patient Status: Registered</p>
+                <p>年龄: ${patient.age} | Age: ${patient.age}</p>
+                <p>性别: ${patient.gender} | Gender: ${patient.gender}</p>
+            `;
+            statusElement.classList.remove('alert-info', 'alert-danger');
+            statusElement.classList.add('alert-success');
+            registrationForm.style.display = 'none';
+        } else {
+            statusElement.textContent = '您尚未注册为患者 | You are not registered as a patient';
+            statusElement.classList.remove('alert-info', 'alert-success');
+            statusElement.classList.add('alert-warning');
+            registrationForm.style.display = 'block';
+        }
+    } catch (error) {
+        console.error(error);
+        const statusElement = document.getElementById('patient-status');
+        statusElement.textContent = '检查患者状态失败 | Failed to check patient status';
+        statusElement.classList.remove('alert-info', 'alert-success');
+        statusElement.classList.add('alert-danger');
+    }
 }
 
-// Initialize the app when the page loads
-window.addEventListener('DOMContentLoaded', init);
+// Register as a patient
+async function registerAsSelfPatient(event) {
+    event.preventDefault();
+    
+    try {
+        const age = document.getElementById('self-age').value;
+        const gender = document.getElementById('self-gender').value;
+        
+        await contract.methods.registerAsSelfPatient(age, gender)
+            .send({ from: currentAccount });
+        
+        showToast('成功 | Success', '注册成功 | Registration successful');
+        event.target.reset();
+        checkPatientStatus(); // Refresh patient status
+    } catch (error) {
+        showToast('错误 | Error', '注册失败 | Registration failed');
+        console.error(error);
+    }
+}
+
+// List all active doctors
+async function listAllDoctors() {
+    try {
+        const doctorAddresses = await contract.methods.getAllDoctors().call();
+        
+        const doctorsListElement = document.getElementById('doctors-list');
+        if (doctorAddresses.length === 0) {
+            doctorsListElement.innerHTML = '<div class="alert alert-info">没有活跃医生 | No active doctors found</div>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        for (const address of doctorAddresses) {
+            const details = await contract.methods.getDoctorDetails(address).call();
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">医生: ${formatAddress(address)} | Doctor: ${formatAddress(address)}</h5>
+                        <small>预约费用: ${details.appointmentFee} Wei | Fee: ${details.appointmentFee} Wei</small>
+                    </div>
+                    <p class="mb-1">专业: ${details.specialty} | Specialty: ${details.specialty}</p>
+                    <p class="mb-1">工作日: ${details.workingDays} | Working Days: ${details.workingDays}</p>
+                    <p class="mb-1">资质: ${details.qualification} | Qualification: ${details.qualification}</p>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary select-doctor" data-address="${address}" data-fee="${details.appointmentFee}">
+                            选择医生 | Select Doctor
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        
+        doctorsListElement.innerHTML = html;
+        
+        // Add event listeners for select buttons
+        document.querySelectorAll('.select-doctor').forEach(button => {
+            button.addEventListener('click', () => {
+                const doctorAddress = button.getAttribute('data-address');
+                const fee = button.getAttribute('data-fee');
+                
+                document.getElementById('appointment-doctor').value = doctorAddress;
+                document.getElementById('fee-label').textContent = `费用 | Fee: ${fee} Wei`;
+                document.getElementById('book-appointment-form').classList.remove('d-none');
+            });
+        });
+    } catch (error) {
+        showToast('错误 | Error', '获取医生列表失败 | Failed to get doctors list');
+        console.error(error);
+    }
+}
+
+// Book an appointment with a doctor
+async function bookAppointment(event) {
+    event.preventDefault();
+    
+    try {
+        const doctorAddress = document.getElementById('appointment-doctor').value;
+        const dateInput = document.getElementById('appointment-date').value;
+        
+        // Convert date to timestamp (seconds)
+        const date = Math.floor(new Date(dateInput).getTime() / 1000);
+        
+        // Get doctor's fee
+        const details = await contract.methods.getDoctorDetails(doctorAddress).call();
+        const fee = details.appointmentFee;
+        
+        // Check if doctor is available
+        const isAvailable = await contract.methods.isDoctorAvailable(doctorAddress, date).call();
+        if (!isAvailable) {
+            showToast('错误 | Error', '医生在该日期不可用 | Doctor is not available on this date');
+            return;
+        }
+        
+        await contract.methods.bookAppointment(doctorAddress, date)
+            .send({ from: currentAccount, value: fee });
+        
+        showToast('成功 | Success', '预约成功 | Appointment booked successfully');
+        event.target.reset();
+        document.getElementById('book-appointment-form').classList.add('d-none');
+    } catch (error) {
+        showToast('错误 | Error', '预约失败 | Booking failed');
+        console.error(error);
+    }
+}
+
+// Get patient's medical record
+async function getMedicalRecord() {
+    try {
+        const record = await contract.methods.getMyMedicalRecord().call({ from: currentAccount });
+        
+        const recordElement = document.getElementById('medical-record');
+        recordElement.innerHTML = `
+            <p>年龄 | Age: ${record.age}</p>
+            <p>性别 | Gender: ${record.gender}</p>
+            <p>医疗记录 | Medical Record: ${record.medicationRecord || '无记录 | No records'}</p>
+        `;
+        recordElement.classList.remove('d-none');
+    } catch (error) {
+        showToast('错误 | Error', '获取医疗记录失败 | Failed to get medical record');
+        console.error(error);
+    }
+}
+
+// Get patient's appointments
+async function getPatientAppointments() {
+    try {
+        const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
+        
+        const appointmentsElement = document.getElementById('patient-appointments');
+        if (appointments.length === 0) {
+            appointmentsElement.innerHTML = '<div class="alert alert-info">没有预约记录 | No appointments found</div>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        for (const appointment of appointments) {
+            const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
+            const status = appointment.completed ? 
+                '<span class="badge bg-success">已完成 | Completed</span>' : 
+                '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">医生: ${formatAddress(appointment.doctor)} | Doctor: ${formatAddress(appointment.doctor)}</h5>
+                        <small>${status}</small>
+                    </div>
+                    <p class="mb-1">专业: ${doctorDetails.specialty} | Specialty: ${doctorDetails.specialty}</p>
+                    <p class="mb-1">日期: ${formatTimestamp(appointment.date)} | Date: ${formatTimestamp(appointment.date)}</p>
+                    <p class="mb-1">费用: ${appointment.fee} Wei | Fee: ${appointment.fee} Wei</p>
+                </div>
+            `;
+        }
+        html += '</div>';
+        
+        appointmentsElement.innerHTML = html;
+    } catch (error) {
+        showToast('错误 | Error', '获取预约失败 | Failed to get appointments');
+        console.error(error);
+    }
+}
