@@ -1,5 +1,5 @@
-const contractAddress = '0xf8e81D47203A594245E36C48e151709F0C19fBe8'; // Replace with your contract address
-const abi = [ [
+const CONTRACT_ADDRESS = '0xf8e81D47203A594245E36C48e151709F0C19fBe8'; // Replace with your contract address
+const CONTRACT_ABI  = [ [
 	{
 		"inputs": [
 			{
