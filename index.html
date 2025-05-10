@@ -3,95 +3,249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hospital Management System</title>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+    <title>医院管理系统 | Hospital Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            padding-top: 20px;
+            padding-bottom: 40px;
         }
         .section {
             margin-bottom: 30px;
             padding: 20px;
-            border: 1px solid #ddd;
             border-radius: 5px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px 0;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        input, select {
-            padding: 8px;
-            margin: 5px 0;
-            display: block;
-            width: 100%;
-        }
-        .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        .hidden {
+            background-color: #f8f9fa;
             display: none;
+        }
+        .active {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <h1>Hospital Management System</h1>
-    <div id="connection-status">
-        <p>Connection Status: <span id="status">Not connected</span></p>
-        <p>Account: <span id="account">Not connected</span></p>
-        <p>Role: <span id="role">Unknown</span></p>
-        <button id="connect-button">Connect to MetaMask</button>
+    <div class="container">
+        <header class="mb-4">
+            <h1 class="text-center">医院管理系统 | Hospital Management System</h1>
+            <div id="wallet-status" class="alert alert-warning text-center">
+                请连接您的钱包 | Please connect your wallet
+            </div>
+            <button id="connect-wallet" class="btn btn-primary w-100 mb-3">
+                连接钱包 | Connect Wallet
+            </button>
+        </header>
+
+        <div id="role-selection" class="text-center mb-4">
+            <h2>选择您的角色 | Select Your Role</h2>
+            <div class="btn-group" role="group">
+                <button id="director-btn" class="btn btn-outline-primary">院长 | Director</button>
+                <button id="doctor-btn" class="btn btn-outline-primary">医生 | Doctor</button>
+                <button id="patient-btn" class="btn btn-outline-primary">患者 | Patient</button>
+            </div>
+        </div>
+
+        <!-- Director Section -->
+        <div id="director-section" class="section">
+            <h2>院长控制面板 | Director Dashboard</h2>
+            <div class="card mb-3">
+                <div class="card-header">添加医生 | Add Doctor</div>
+                <div class="card-body">
+                    <form id="add-doctor-form">
+                        <div class="mb-3">
+                            <label for="doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                            <input type="text" class="form-control" id="doctor-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="doctor-specialty" class="form-label">专业 | Specialty</label>
+                            <input type="text" class="form-control" id="doctor-specialty" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="doctor-workdays" class="form-label">工作日 | Working Days</label>
+                            <input type="text" class="form-control" id="doctor-workdays" placeholder="Mon, Wed, Fri" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="doctor-qualification" class="form-label">资质 | Qualification</label>
+                            <input type="text" class="form-control" id="doctor-qualification" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">添加医生 | Add Doctor</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">撤销医生权限 | Revoke Doctor</div>
+                <div class="card-body">
+                    <form id="revoke-doctor-form">
+                        <div class="mb-3">
+                            <label for="revoke-doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                            <input type="text" class="form-control" id="revoke-doctor-address" required>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100">撤销权限 | Revoke Doctor</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">医院统计 | Hospital Statistics</div>
+                <div class="card-body">
+                    <button id="get-stats-btn" class="btn btn-info w-100 mb-3">获取统计数据 | Get Statistics</button>
+                    <div id="hospital-stats" class="alert alert-info d-none"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Section -->
+        <div id="doctor-section" class="section">
+            <h2>医生控制面板 | Doctor Dashboard</h2>
+            <div id="doctor-status" class="alert alert-info mb-3">
+                正在检查医生状态... | Checking doctor status...
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">设置预约费用 | Set Appointment Fee</div>
+                <div class="card-body">
+                    <form id="set-fee-form">
+                        <div class="mb-3">
+                            <label for="appointment-fee" class="form-label">费用 (Wei) | Fee (Wei)</label>
+                            <input type="number" class="form-control" id="appointment-fee" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">设置费用 | Set Fee</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">添加患者 | Add Patient</div>
+                <div class="card-body">
+                    <form id="add-patient-form">
+                        <div class="mb-3">
+                            <label for="patient-address" class="form-label">患者地址 | Patient Address</label>
+                            <input type="text" class="form-control" id="patient-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patient-age" class="form-label">年龄 | Age</label>
+                            <input type="number" class="form-control" id="patient-age" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patient-gender" class="form-label">性别 | Gender</label>
+                            <select class="form-control" id="patient-gender" required>
+                                <option value="Male">男 | Male</option>
+                                <option value="Female">女 | Female</option>
+                                <option value="Other">其他 | Other</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">添加患者 | Add Patient</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">添加医疗记录 | Add Medication</div>
+                <div class="card-body">
+                    <form id="add-medication-form">
+                        <div class="mb-3">
+                            <label for="medication-patient-address" class="form-label">患者地址 | Patient Address</label>
+                            <input type="text" class="form-control" id="medication-patient-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="medication-record" class="form-label">医疗记录 | Medication Record</label>
+                            <textarea class="form-control" id="medication-record" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">添加记录 | Add Medication</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">我的预约 | My Appointments</div>
+                <div class="card-body">
+                    <button id="get-doctor-appointments-btn" class="btn btn-info w-100 mb-3">查看预约 | View Appointments</button>
+                    <div id="doctor-appointments" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient Section -->
+        <div id="patient-section" class="section">
+            <h2>患者控制面板 | Patient Dashboard</h2>
+            <div id="patient-status" class="alert alert-info mb-3">
+                正在检查患者状态... | Checking patient status...
+            </div>
+
+            <div id="patient-registration" class="card mb-3">
+                <div class="card-header">患者注册 | Patient Registration</div>
+                <div class="card-body">
+                    <form id="register-patient-form">
+                        <div class="mb-3">
+                            <label for="self-age" class="form-label">年龄 | Age</label>
+                            <input type="number" class="form-control" id="self-age" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="self-gender" class="form-label">性别 | Gender</label>
+                            <select class="form-control" id="self-gender" required>
+                                <option value="Male">男 | Male</option>
+                                <option value="Female">女 | Female</option>
+                                <option value="Other">其他 | Other</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">注册 | Register</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">预约医生 | Book Appointment</div>
+                <div class="card-body">
+                    <button id="list-doctors-btn" class="btn btn-info w-100 mb-3">列出所有医生 | List All Doctors</button>
+                    <div id="doctors-list" class="mb-3"></div>
+                    
+                    <form id="book-appointment-form" class="d-none">
+                        <div class="mb-3">
+                            <label for="appointment-doctor" class="form-label">医生地址 | Doctor Address</label>
+                            <input type="text" class="form-control" id="appointment-doctor" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="appointment-date" class="form-label">预约日期 | Appointment Date</label>
+                            <input type="datetime-local" class="form-control" id="appointment-date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label id="fee-label" class="form-label">费用 | Fee: 0 Wei</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">预约 | Book Appointment</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">我的医疗记录 | My Medical Record</div>
+                <div class="card-body">
+                    <button id="get-medical-record-btn" class="btn btn-info w-100 mb-3">查看记录 | View Record</button>
+                    <div id="medical-record" class="alert alert-info d-none"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">我的预约 | My Appointments</div>
+                <div class="card-body">
+                    <button id="get-patient-appointments-btn" class="btn btn-info w-100 mb-3">查看预约 | View Appointments</button>
+                    <div id="patient-appointments" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="director-section" class="section hidden">
-        <h2>Director Functions</h2>
-        <div>
-            <h3>Add Doctor</h3>
-            <input type="text" id="doctor-address" placeholder="Doctor's Ethereum Address">
-            <input type="text" id="doctor-specialty" placeholder="Specialty">
-            <input type="text" id="doctor-working-days" placeholder="Working Days (e.g., Mon,Wed,Fri)">
-            <input type="text" id="doctor-qualification" placeholder="Qualification">
-            <button id="add-doctor-button">Add Doctor</button>
-        </div>
-        <div>
-            <h3>Revoke Doctor</h3>
-            <input type="text" id="revoke-doctor-address" placeholder="Doctor's Ethereum Address">
-            <button id="revoke-doctor-button">Revoke Doctor</button>
-        </div>
-        <div>
-            <h3>Hospital Statistics</h3>
-            <button id="get-stats-button">Get Statistics</button>
-            <div id="stats-result"></div>
-        </div>
-        <div>
-            <h3>All Doctors</h3>
-            <button id="get-doctors-button">Get All Doctors</button>
-            <div id="doctors-list"></div>
+    <!-- Toast notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">通知 | Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
         </div>
     </div>
 
-    <div id="status-message" class="status hidden"></div>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.1/dist/web3.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
