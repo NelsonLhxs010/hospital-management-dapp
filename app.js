@@ -1239,8 +1239,8 @@ function formatWorkingDays(binaryDays) {
         return "Unknown";
     }
     
-    const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-    const englishDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = ["周一", "周二", "周三", "周四", "周五", "周六","周日"];
+    const englishDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat","Sun"];
     
     let result = "";
     let englishResult = "";
@@ -1763,7 +1763,6 @@ async function showDoctorDetails(doctorAddress) {
     }
 }
 
-
 // Book an appointment with a doctor
 async function bookAppointment(event) {
     event.preventDefault();
@@ -1779,16 +1778,7 @@ async function bookAppointment(event) {
         }
         
         // Convert date to timestamp (seconds)
-        const selectedDate = new Date(dateInput);
-        const now = new Date();
-        
-        // 检查预约日期是否在今天之后
-        if (selectedDate <= now) {
-            showToast('错误 | Error', '预约日期必须在今天之后 | Appointment date must be after today');
-            return;
-        }
-        
-        const date = Math.floor(selectedDate.getTime() / 1000);
+        const date = Math.floor(new Date(dateInput).getTime() / 1000);
         
         // Get doctor's fee
         const details = await contract.methods.getDoctorDetails(doctorAddress).call();
@@ -2116,4 +2106,3 @@ function setupEventListeners() {
     // 设置表单监听器
     setupFormListeners();
 }
-
