@@ -1119,10 +1119,23 @@ async function connectWallet() {
 // Function called after wallet is connected
 async function onWalletConnected() {
     try {
-        // Initialize contract
-        contract = new web3.eth.Contract(contractABI, contractAddress);
+        // 确保 web3 在这里正确初始化
+        if (typeof window.ethereum !== 'undefined') {
+            web3 = new Web3(window.ethereum);
+            console.log("Web3 initialized successfully");
+        } else {
+            throw new Error("Ethereum provider not found");
+        }
         
-        // Update UI
+        // 确保 contractABI 和 contractAddress 已定义
+        if (!contractABI || !contractAddress) {
+            throw new Error("Contract ABI or address is not defined");
+        }
+        // 初始化合约
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+        console.log("Contract initialized with address:", contractAddress);
+        
+        // 更新 UI
         document.getElementById('wallet-status').innerHTML = `
             <span>钱包已连接 | Wallet connected</span><br>
             <small>${currentAccount}</small>
@@ -1130,26 +1143,29 @@ async function onWalletConnected() {
         document.getElementById('wallet-status').classList.remove('alert-warning');
         document.getElementById('wallet-status').classList.add('alert-success');
         
-        // Hide connect button
+        // 隐藏连接按钮
         document.getElementById('connect-wallet').style.display = 'none';
         
-        // Listen for account changes
+        // 监听账户变化
         window.ethereum.on('accountsChanged', function (accounts) {
             currentAccount = accounts[0];
             resetUI();
             showToast('通知 | Notification', '钱包账户已更改 | Wallet account changed');
         });
         
-        // Check if user is a director
+        // 检查用户是否是院长
         const director = await contract.methods.director().call();
+        console.log("Director address:", director);
+        console.log("Current account:", currentAccount);
         if (currentAccount.toLowerCase() === director.toLowerCase()) {
             selectRole('director');
         }
     } catch (error) {
-        showToast('错误 | Error', '连接到合约失败 | Failed to connect to contract');
-        console.error(error);
+        showToast('错误 | Error', `连接到合约失败: ${error.message} | Failed to connect to contract: ${error.message}`);
+        console.error("Error in onWalletConnected:", error);
     }
 }
+
 
 // Set up all form event listeners
 function setupFormListeners() {
