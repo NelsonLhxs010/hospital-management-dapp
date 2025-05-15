@@ -20,6 +20,32 @@
         .active {
             display: block;
         }
+        .appointment-card {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .status-badge {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        .doctor-card {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .doctor-card:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .rating-stars {
+            color: #ffc107;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -59,8 +85,14 @@
                             <input type="text" class="form-control" id="doctor-specialty" required>
                         </div>
                         <div class="mb-3">
-                            <label for="doctor-workdays" class="form-label">工作日 | Working Days</label>
-                            <input type="text" class="form-control" id="doctor-workdays" placeholder="Mon, Wed, Fri" required>
+                            <label for="doctor-workdays" class="form-label">工作日 | Working Days (7位二进制，如1111100)</label>
+                            <input type="text" class="form-control" id="doctor-workdays" 
+                                placeholder="1111100 (周一至周五工作)" required 
+                                pattern="[0-1]{7}" title="请输入7位二进制数字，1表示工作，0表示不工作">
+                            <small class="form-text text-muted">
+                                例如：1111100 表示周一至周五工作，周末休息 | 
+                                Example: 1111100 means working Monday to Friday, weekend off
+                            </small>
                         </div>
                         <div class="mb-3">
                             <label for="doctor-qualification" class="form-label">资质 | Qualification</label>
@@ -160,6 +192,37 @@
                 <div class="card-body">
                     <button id="get-doctor-appointments-btn" class="btn btn-info w-100 mb-3">查看预约 | View Appointments</button>
                     <div id="doctor-appointments" class="mt-3"></div>
+                    
+                    <!-- 新增医生取消预约表单 -->
+                    <div id="cancel-appointment-form-doctor" class="mt-4 d-none">
+                        <h5>取消预约 | Cancel Appointment</h5>
+                        <div class="alert alert-warning">
+                            取消预约将退还患者的付款 | Cancelling an appointment will refund the patient's payment
+                        </div>
+                        <div class="mb-3">
+                            <label for="cancel-patient-address" class="form-label">患者地址 | Patient Address</label>
+                            <input type="text" class="form-control" id="cancel-patient-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cancel-appointment-id" class="form-label">预约ID | Appointment ID</label>
+                            <input type="number" class="form-control" id="cancel-appointment-id" required min="1">
+                        </div>
+                        <button id="cancel-appointment-btn" class="btn btn-danger w-100">取消预约 | Cancel Appointment</button>
+                    </div>
+                    
+                    <!-- 新增完成预约表单 -->
+                    <div id="complete-appointment-form" class="mt-4 d-none">
+                        <h5>完成预约 | Complete Appointment</h5>
+                        <div class="mb-3">
+                            <label for="complete-patient-address" class="form-label">患者地址 | Patient Address</label>
+                            <input type="text" class="form-control" id="complete-patient-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="complete-appointment-id" class="form-label">预约ID | Appointment ID</label>
+                            <input type="number" class="form-control" id="complete-appointment-id" required min="1">
+                        </div>
+                        <button id="complete-appointment-btn" class="btn btn-success w-100">完成预约 | Complete Appointment</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -223,11 +286,75 @@
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card mb-3">
                 <div class="card-header">我的预约 | My Appointments</div>
                 <div class="card-body">
                     <button id="get-patient-appointments-btn" class="btn btn-info w-100 mb-3">查看预约 | View Appointments</button>
                     <div id="patient-appointments" class="mt-3"></div>
+                </div>
+            </div>
+            
+            <!-- 新增医生评分卡片 -->
+            <div class="card">
+                <div class="card-header">评价医生 | Rate Doctor</div>
+                <div class="card-body">
+                    <form id="rate-doctor-form">
+                        <div class="mb-3">
+                            <label for="rate-doctor-address" class="form-label">医生地址 | Doctor Address</label>
+                            <input type="text" class="form-control" id="rate-doctor-address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="rate-appointment-id" class="form-label">预约ID | Appointment ID</label>
+                            <input type="number" class="form-control" id="rate-appointment-id" required min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="doctor-rating" class="form-label">评分 | Rating</label>
+                            <select class="form-control" id="doctor-rating" required>
+                                <option value="1">1 ★</option>
+                                <option value="2">2 ★★</option>
+                                <option value="3" selected>3 ★★★</option>
+                                <option value="4">4 ★★★★</option>
+                                <option value="5">5 ★★★★★</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">提交评分 | Submit Rating</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 医生和预约详情模态框 -->
+    <div class="modal fade" id="doctorDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">医生详情 | Doctor Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="doctor-details-content">
+                    <!-- 医生详情将在这里动态填充 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭 | Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预约详情模态框 -->
+    <div class="modal fade" id="appointmentDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">预约详情 | Appointment Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="appointment-details-content">
+                    <!-- 预约详情将在这里动态填充 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭 | Close</button>
                 </div>
             </div>
         </div>
