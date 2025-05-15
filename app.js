@@ -1436,7 +1436,7 @@ async function addMedication(event) {
     }
 }
 
-// Get doctor's appointments
+// 修改getDoctorAppointments函数以显示已取消的预约
 async function getDoctorAppointments() {
     try {
         const appointments = await contract.methods.getDoctorAppointments().call({ from: currentAccount });
@@ -1452,9 +1452,15 @@ async function getDoctorAppointments() {
         
         let html = '<div class="list-group">';
         for (const appointment of appointments) {
-            const status = appointment.completed ? 
-                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
-                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            // 添加对已取消预约的处理
+            let status;
+            if (appointment.cancelled) {
+                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
+            } else if (appointment.completed) {
+                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
+            } else {
+                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            }
             
             const date = formatTimestamp(appointment.date);
             
@@ -1468,7 +1474,7 @@ async function getDoctorAppointments() {
                         <small>预约费用: ${appointment.fee} Wei</small>
                     </div>
                     <p class="mb-1">日期: ${date}</p>
-                    ${!appointment.completed ? `
+                    ${!appointment.completed && !appointment.cancelled ? `
                     <div class="d-flex justify-content-end mt-2 gap-2">
                         <button class="btn btn-sm btn-success complete-btn" 
                                 data-patient="${appointment.patient}" 
@@ -1821,7 +1827,6 @@ async function getMedicalRecord() {
     }
 }
 
-// Get patient's appointments
 async function getPatientAppointments() {
     try {
         const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
@@ -1835,9 +1840,16 @@ async function getPatientAppointments() {
         let html = '';
         for (const appointment of appointments) {
             const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
-            const status = appointment.completed ? 
-                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
-                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            
+            // 添加对已取消预约的处理
+            let status;
+            if (appointment.cancelled) {
+                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
+            } else if (appointment.completed) {
+                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
+            } else {
+                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            }
             
             html += `
                 <div class="appointment-card">
@@ -1852,7 +1864,7 @@ async function getPatientAppointments() {
                         </div>
                         <div class="col-md-6">
                             <p class="mb-1"><strong>费用 | Fee:</strong> ${appointment.fee} Wei</p>
-                            ${appointment.completed ? `
+                            ${appointment.completed && !appointment.cancelled ? `
                             <button class="btn btn-sm btn-primary rate-btn mt-2" 
                                 data-doctor="${appointment.doctor}" 
                                 data-id="${appointment.appointmentId}">
@@ -1886,8 +1898,30 @@ async function getPatientAppointments() {
         console.error(error);
     }
 }
+        appointmentsElement.innerHTML = html;
+        
+        // 为评价按钮添加事件监听器
+        document.querySelectorAll('.rate-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const doctorAddress = this.getAttribute('data-doctor');
+                const appointmentId = this.getAttribute('data-id');
+                
+                document.getElementById('rate-doctor-address').value = doctorAddress;
+                document.getElementById('rate-appointment-id').value = appointmentId;
+                
+                // 滚动到评价表单
+                document.getElementById('rate-doctor-form').scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    } catch (error) {
+        showToast('错误 | Error', '获取预约失败 | Failed to get appointments');
+        console.error(error);
+    }
+}
 
-// 评价医生函数
+// 修改rateDoctor函数添加对已取消预约的验证
 async function rateDoctor(event) {
     event.preventDefault();
     
@@ -1899,6 +1933,16 @@ async function rateDoctor(event) {
         if (!doctorAddress || !appointmentId || !rating) {
             showToast('错误 | Error', '请提供所有必填字段 | Please provide all required fields');
             return;
+        }
+        
+        // 获取预约信息验证预约是否已取消
+        const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
+        if (appointmentId < appointments.length) {
+            const appointment = appointments[appointmentId];
+            if (appointment.cancelled) {
+                showToast('错误 | Error', '不能评价已取消的预约 | Cannot rate cancelled appointments');
+                return;
+            }
         }
         
         await contract.methods.rateDoctor(doctorAddress, appointmentId, rating)
@@ -1928,12 +1972,19 @@ async function verifyDoctor(doctorAddress) {
     }
 }
 
-// 显示预约详情
+// 修改显示预约详情函数以显示已取消状态
 function showAppointmentDetails(appointment, doctorDetails, patientDetails) {
     const modalContent = document.getElementById('appointment-details-content');
-    const status = appointment.completed ? 
-        '<span class="badge bg-success">已完成 | Completed</span>' : 
-        '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
+    
+    // 更新状态显示处理
+    let status;
+    if (appointment.cancelled) {
+        status = '<span class="badge bg-danger">已取消 | Cancelled</span>';
+    } else if (appointment.completed) {
+        status = '<span class="badge bg-success">已完成 | Completed</span>'; 
+    } else {
+        status = '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
+    }
     
     modalContent.innerHTML = `
         <div class="text-center mb-3">
@@ -1968,6 +2019,7 @@ function showAppointmentDetails(appointment, doctorDetails, patientDetails) {
     
     appointmentDetailsModal.show();
 }
+
 
 // 检查当前区块链网络
 async function checkNetwork() {
