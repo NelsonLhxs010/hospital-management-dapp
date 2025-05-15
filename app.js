@@ -1,9 +1,10 @@
 
 
 // Contract address - Replace with your deployed contract address
-const contractAddress = '0xD6cf0DcbD50EE62F2D300CE66094011Bd2E699fE'; // 部署合约后填写合约地址 | Fill this after contract deployment
+const contractAddress = '0xaddE4B02D0356B466912E60580245CB088127db3'; // 部署合约后填写合约地址 | Fill this after contract deployment
 
-const contractABI = [
+const contractABI = 
+	[
 	{
 		"inputs": [
 			{
@@ -1081,7 +1082,9 @@ const contractABI = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-];
+]
+	
+;
 
 
 // Global variables
