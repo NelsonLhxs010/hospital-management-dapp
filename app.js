@@ -1282,8 +1282,8 @@ function formatWorkingDays(binaryDays) {
         return "Unknown";
     }
     
-    const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-    const englishDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = ["周一", "周二", "周三", "周四", "周五", "周六","周日"];
+    const englishDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat","Sun"];
     
     let result = "";
     let englishResult = "";
