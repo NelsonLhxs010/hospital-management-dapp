@@ -1,10 +1,9 @@
 
 
 // Contract address - Replace with your deployed contract address
-const contractAddress = '0x576C0D623F031d207cFDC1A8F7dB16e77d3e954C'; // 部署合约后填写合约地址 | Fill this after contract deployment
+const contractAddress = '0x4C9BBfb0072B1640980b2bC20122d5F1f9722913'; // 部署合约后填写合约地址 | Fill this after contract deployment
 
-const contractABI = 
-[
+const contractABI = [
 	{
 		"inputs": [
 			{
@@ -1083,7 +1082,7 @@ const contractABI =
 		"type": "function"
 	}
 ]
-	
+
 ;
 
 
@@ -1494,33 +1493,40 @@ async function getDoctorAppointments() {
         }
         
         let html = '<div class="list-group">';
-        for (const appointment of appointments) {
-            const status = appointment.completed ? 
-                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
-                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
+            
+            let status;
+            if (appointment.cancelled) {
+                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
+            } else if (appointment.completed) {
+                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
+            } else {
+                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            }
             
             const date = formatTimestamp(appointment.date);
             
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${i + 1} ${status}</h5>
                     </div>
                     <div class="d-flex w-100 justify-content-between">
                         <p class="mb-1">患者: ${formatAddress(appointment.patient)}</p>
                         <small>预约费用: ${appointment.fee} Wei</small>
                     </div>
                     <p class="mb-1">日期: ${date}</p>
-                    ${!appointment.completed ? `
+                    ${!appointment.completed && !appointment.cancelled ? `
                     <div class="d-flex justify-content-end mt-2 gap-2">
                         <button class="btn btn-sm btn-success complete-btn" 
                                 data-patient="${appointment.patient}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${i}">
                             完成预约 | Complete
                         </button>
                         <button class="btn btn-sm btn-danger cancel-btn" 
                                 data-patient="${appointment.patient}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${i}">
                             取消预约 | Cancel
                         </button>
                     </div>` : ''}
@@ -1876,16 +1882,23 @@ async function getPatientAppointments() {
         }
         
         let html = '';
-        for (const appointment of appointments) {
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
             const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
-            const status = appointment.completed ? 
-                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
-                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            
+            let status;
+            if (appointment.cancelled) {
+                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
+            } else if (appointment.completed) {
+                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
+            } else {
+                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
+            }
             
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${i + 1} ${status}</h5>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -1895,10 +1908,10 @@ async function getPatientAppointments() {
                         </div>
                         <div class="col-md-6">
                             <p class="mb-1"><strong>费用 | Fee:</strong> ${appointment.fee} Wei</p>
-                            ${appointment.completed ? `
+                            ${appointment.completed && !appointment.cancelled ? `
                             <button class="btn btn-sm btn-primary rate-btn mt-2" 
                                 data-doctor="${appointment.doctor}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${i}">
                                 评价医生 | Rate Doctor
                             </button>` : ''}
                         </div>
@@ -1929,6 +1942,7 @@ async function getPatientAppointments() {
         console.error(error);
     }
 }
+
 
 // 评价医生函数
 async function rateDoctor(event) {
