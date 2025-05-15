@@ -253,7 +253,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="appointment-date" class="form-label">预约日期 | Appointment Date</label>
-                            <input type="datetime-local" class="form-control" id="appointment-date" required>
+                            <input type="datetime-local" class="form-control" id="appointment-date" required min="<?php echo date('Y-m-d\TH:i'); ?>">
                         </div>
                         <div class="mb-3">
                             <label id="fee-label" class="form-label">费用 | Fee: 0 Wei</label>
