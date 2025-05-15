@@ -1,5 +1,5 @@
 // Contract address and ABI
-const contractAddress = '0x4C9BBfb0072B1640980b2bC20122d5F1f9722913';
+const contractAddress = '0x50948F6101ea10c48cb6b734858B89AaceFB2FcD';
 
 const contractABI = [
 	{
