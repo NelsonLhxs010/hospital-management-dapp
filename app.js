@@ -1055,29 +1055,36 @@ let toastBootstrap;
 let doctorDetailsModal;
 let appointmentDetailsModal;
 
-// Initialize the application when the window loads
 window.addEventListener('load', async () => {
-    // Initialize Bootstrap toast and modals
+    // 初始化Bootstrap toast和模态框
     toast = document.getElementById('toast');
     toastBootstrap = new bootstrap.Toast(toast);
-    doctorDetailsModal = new bootstrap.Modal(document.getElementById('doctorDetailsModal'));
-    appointmentDetailsModal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
     
-    // Set up event listeners
+    const doctorDetailsModalEl = document.getElementById('doctorDetailsModal');
+    if (doctorDetailsModalEl) {
+        doctorDetailsModal = new bootstrap.Modal(doctorDetailsModalEl);
+    }
+    
+    const appointmentDetailsModalEl = document.getElementById('appointmentDetailsModal');
+    if (appointmentDetailsModalEl) {
+        appointmentDetailsModal = new bootstrap.Modal(appointmentDetailsModalEl);
+    }
+    
+    // 设置事件监听器
     document.getElementById('connect-wallet').addEventListener('click', connectWallet);
     document.getElementById('director-btn').addEventListener('click', () => selectRole('director'));
     document.getElementById('doctor-btn').addEventListener('click', () => selectRole('doctor'));
     document.getElementById('patient-btn').addEventListener('click', () => selectRole('patient'));
     
-    // Set up form event listeners
+    // 设置表单监听器
     setupFormListeners();
     
-    // Check if MetaMask is installed
+    // 检查MetaMask是否安装
     if (window.ethereum) {
         try {
-            // Request account access if needed
+            // 请求帐户访问权限
             web3 = new Web3(window.ethereum);
-            // Check if already connected
+            // 检查是否已连接
             accounts = await web3.eth.getAccounts();
             if (accounts.length > 0) {
                 currentAccount = accounts[0];
@@ -1091,6 +1098,7 @@ window.addEventListener('load', async () => {
         showToast('警告 | Warning', '请安装 MetaMask 钱包 | Please install MetaMask wallet');
     }
 });
+
 
 // Connect wallet function
 async function connectWallet() {
@@ -1436,22 +1444,21 @@ async function addMedication(event) {
     }
 }
 
-// 修改getDoctorAppointments函数以显示已取消的预约
-async function getDoctorAppointments() {
+async function getPatientAppointments() {
     try {
-        const appointments = await contract.methods.getDoctorAppointments().call({ from: currentAccount });
+        const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
         
-        const appointmentsElement = document.getElementById('doctor-appointments');
+        const appointmentsElement = document.getElementById('patient-appointments');
         if (appointments.length === 0) {
             appointmentsElement.innerHTML = '<div class="alert alert-info">没有预约记录 | No appointments found</div>';
-            // 隐藏取消和完成预约表单
-            document.getElementById('cancel-appointment-form-doctor').classList.add('d-none');
-            document.getElementById('complete-appointment-form').classList.add('d-none');
             return;
         }
         
-        let html = '<div class="list-group">';
-        for (const appointment of appointments) {
+        let html = '';
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
+            const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
+            
             // 添加对已取消预约的处理
             let status;
             if (appointment.cancelled) {
@@ -1462,60 +1469,46 @@ async function getDoctorAppointments() {
                 status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
             }
             
-            const date = formatTimestamp(appointment.date);
-            
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${i} ${status}</h5>
                     </div>
-                    <div class="d-flex w-100 justify-content-between">
-                        <p class="mb-1">患者: ${formatAddress(appointment.patient)}</p>
-                        <small>预约费用: ${appointment.fee} Wei</small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>医生 | Doctor:</strong> ${formatAddress(appointment.doctor)}</p>
+                            <p class="mb-1"><strong>专业 | Specialty:</strong> ${doctorDetails.specialty}</p>
+                            <p class="mb-1"><strong>日期 | Date:</strong> ${formatTimestamp(appointment.date)}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>费用 | Fee:</strong> ${appointment.fee} Wei</p>
+                            ${appointment.completed && !appointment.cancelled ? `
+                            <button class="btn btn-sm btn-primary rate-btn mt-2" 
+                                data-doctor="${appointment.doctor}" 
+                                data-id="${i}">
+                                评价医生 | Rate Doctor
+                            </button>` : ''}
+                        </div>
                     </div>
-                    <p class="mb-1">日期: ${date}</p>
-                    ${!appointment.completed && !appointment.cancelled ? `
-                    <div class="d-flex justify-content-end mt-2 gap-2">
-                        <button class="btn btn-sm btn-success complete-btn" 
-                                data-patient="${appointment.patient}" 
-                                data-id="${appointment.appointmentId}">
-                            完成预约 | Complete
-                        </button>
-                        <button class="btn btn-sm btn-danger cancel-btn" 
-                                data-patient="${appointment.patient}" 
-                                data-id="${appointment.appointmentId}">
-                            取消预约 | Cancel
-                        </button>
-                    </div>` : ''}
                 </div>
             `;
         }
-        html += '</div>';
         
         appointmentsElement.innerHTML = html;
         
-        // 显示取消和完成预约表单
-        document.getElementById('cancel-appointment-form-doctor').classList.remove('d-none');
-        document.getElementById('complete-appointment-form').classList.remove('d-none');
-        
-        // 为完成和取消按钮添加事件监听器
-        document.querySelectorAll('.complete-btn').forEach(button => {
+        // 为评价按钮添加事件监听器
+        document.querySelectorAll('.rate-btn').forEach(button => {
             button.addEventListener('click', function() {
-                const patientAddress = this.getAttribute('data-patient');
+                const doctorAddress = this.getAttribute('data-doctor');
                 const appointmentId = this.getAttribute('data-id');
                 
-                document.getElementById('complete-patient-address').value = patientAddress;
-                document.getElementById('complete-appointment-id').value = appointmentId;
-            });
-        });
-        
-        document.querySelectorAll('.cancel-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const patientAddress = this.getAttribute('data-patient');
-                const appointmentId = this.getAttribute('data-id');
+                document.getElementById('rate-doctor-address').value = doctorAddress;
+                document.getElementById('rate-appointment-id').value = appointmentId;
                 
-                document.getElementById('cancel-patient-address').value = patientAddress;
-                document.getElementById('cancel-appointment-id').value = appointmentId;
+                // 滚动到评价表单
+                document.getElementById('rate-doctor-form').scrollIntoView({
+                    behavior: 'smooth'
+                });
             });
         });
     } catch (error) {
@@ -1523,6 +1516,7 @@ async function getDoctorAppointments() {
         console.error(error);
     }
 }
+
 
 // 取消预约函数
 async function cancelAppointment() {
@@ -1838,7 +1832,8 @@ async function getPatientAppointments() {
         }
         
         let html = '';
-        for (const appointment of appointments) {
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
             const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
             
             // 添加对已取消预约的处理
@@ -1854,7 +1849,7 @@ async function getPatientAppointments() {
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${i} ${status}</h5>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -1867,7 +1862,7 @@ async function getPatientAppointments() {
                             ${appointment.completed && !appointment.cancelled ? `
                             <button class="btn btn-sm btn-primary rate-btn mt-2" 
                                 data-doctor="${appointment.doctor}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${i}">
                                 评价医生 | Rate Doctor
                             </button>` : ''}
                         </div>
@@ -1898,28 +1893,7 @@ async function getPatientAppointments() {
         console.error(error);
     }
 }
-        appointmentsElement.innerHTML = html;
-        
-        // 为评价按钮添加事件监听器
-        document.querySelectorAll('.rate-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const doctorAddress = this.getAttribute('data-doctor');
-                const appointmentId = this.getAttribute('data-id');
-                
-                document.getElementById('rate-doctor-address').value = doctorAddress;
-                document.getElementById('rate-appointment-id').value = appointmentId;
-                
-                // 滚动到评价表单
-                document.getElementById('rate-doctor-form').scrollIntoView({
-                    behavior: 'smooth'
-                });
-            });
-        });
-    } catch (error) {
-        showToast('错误 | Error', '获取预约失败 | Failed to get appointments');
-        console.error(error);
-    }
-}
+
 
 // 修改rateDoctor函数添加对已取消预约的验证
 async function rateDoctor(event) {
@@ -1941,6 +1915,11 @@ async function rateDoctor(event) {
             const appointment = appointments[appointmentId];
             if (appointment.cancelled) {
                 showToast('错误 | Error', '不能评价已取消的预约 | Cannot rate cancelled appointments');
+                return;
+            }
+            
+            if (!appointment.completed) {
+                showToast('错误 | Error', '只能评价已完成的预约 | Can only rate completed appointments');
                 return;
             }
         }
