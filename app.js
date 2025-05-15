@@ -1527,6 +1527,20 @@ async function completeAppointment() {
 
 // ==================== PATIENT FUNCTIONS ====================
 
+function setMinimumAppointmentDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const minDate = `${year}-${month}-${day}T00:00`;
+    
+    const dateInput = document.getElementById('appointment-date');
+    if (dateInput) {
+        dateInput.min = minDate;
+    }
+}
+
+
 // Check if current user is a patient
 async function checkPatientStatus() {
     try {
@@ -1580,6 +1594,7 @@ async function registerAsSelfPatient(event) {
 
 // List all active doctors
 async function listAllDoctors() {
+	setMinimumAppointmentDate();
     try {
         const doctorAddresses = await contract.methods.getAllDoctors().call();
         
