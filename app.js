@@ -1,10 +1,10 @@
 
 
 // Contract address - Replace with your deployed contract address
-const contractAddress = '0xaddE4B02D0356B466912E60580245CB088127db3'; // 部署合约后填写合约地址 | Fill this after contract deployment
+const contractAddress = '0x576C0D623F031d207cFDC1A8F7dB16e77d3e954C'; // 部署合约后填写合约地址 | Fill this after contract deployment
 
 const contractABI = 
-	[
+[
 	{
 		"inputs": [
 			{
