@@ -1450,7 +1450,11 @@ async function getDoctorAppointments() {
         }
         
         let html = '<div class="list-group">';
-        for (const appointment of appointments) {
+        // 使用索引作为预约ID
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
+            const appointmentId = i; // 使用索引作为预约ID
+            
             const status = appointment.completed ? 
                 '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
                 '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
@@ -1460,7 +1464,7 @@ async function getDoctorAppointments() {
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${appointmentId} ${status}</h5>
                     </div>
                     <div class="d-flex w-100 justify-content-between">
                         <p class="mb-1">患者: ${formatAddress(appointment.patient)}</p>
@@ -1471,7 +1475,7 @@ async function getDoctorAppointments() {
                     <div class="d-flex justify-content-end mt-2 gap-2">
                         <button class="btn btn-sm btn-success complete-btn" 
                                 data-patient="${appointment.patient}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${appointmentId}">
                             完成预约 | Complete
                         </button>
                     </div>` : ''}
@@ -1500,7 +1504,6 @@ async function getDoctorAppointments() {
         console.error(error);
     }
 }
-
 
 
 // 完成预约函数
@@ -1816,7 +1819,11 @@ async function getPatientAppointments() {
         }
         
         let html = '';
-        for (const appointment of appointments) {
+        // 使用索引作为预约ID
+        for (let i = 0; i < appointments.length; i++) {
+            const appointment = appointments[i];
+            const appointmentId = i; // 使用索引作为预约ID
+            
             const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
             const status = appointment.completed ? 
                 '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
@@ -1825,7 +1832,7 @@ async function getPatientAppointments() {
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${appointmentId} ${status}</h5>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -1838,7 +1845,7 @@ async function getPatientAppointments() {
                             ${appointment.completed ? `
                             <button class="btn btn-sm btn-primary rate-btn mt-2" 
                                 data-doctor="${appointment.doctor}" 
-                                data-id="${appointment.appointmentId}">
+                                data-id="${appointmentId}">
                                 评价医生 | Rate Doctor
                             </button>` : ''}
                         </div>
@@ -1869,6 +1876,7 @@ async function getPatientAppointments() {
         console.error(error);
     }
 }
+
 
 // 评价医生函数
 async function rateDoctor(event) {
