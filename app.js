@@ -1211,6 +1211,7 @@ function setupFormListeners() {
     
     // 添加评价医生功能的监听器
     document.getElementById('rate-doctor-form')?.addEventListener('submit', rateDoctor);
+    setupAppointmentDateLimits();
 }
 
 // Select user role and update UI
@@ -1616,7 +1617,42 @@ async function completeAppointment() {
 }
 
 // ==================== PATIENT FUNCTIONS ====================
-
+function setupAppointmentDateLimits() {
+    const dateInput = document.getElementById('appointment-date');
+    
+    // 设置最小日期为今天
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const formattedToday = `${yyyy}-${mm}-${dd}`;
+    
+    dateInput.setAttribute('min', formattedToday);
+    dateInput.value = formattedToday; // 默认设置为今天
+    
+    // 监听日期变化，确保不能选择过去的日期
+    dateInput.addEventListener('change', function() {
+        if (this.value < formattedToday) {
+            this.value = formattedToday;
+            showToast('提示 | Info', '不能预约过去的日期 | Cannot book appointments in the past');
+        }
+    });
+}
+// 预约提交前的时间检查
+async function validateAppointmentTime(dateStr, timeStr) {
+    // 将日期和时间转换为时间戳
+    const appointmentDate = new Date(`${dateStr}T${timeStr}`);
+    const appointmentTimestamp = Math.floor(appointmentDate.getTime() / 1000);
+    
+    // 检查是否是过去的时间
+    const now = Math.floor(Date.now() / 1000);
+    if (appointmentTimestamp <= now) {
+        showToast('错误 | Error', '不能预约过去的时间 | Cannot book appointments in the past');
+        return false;
+    }
+    
+    return true;
+}
 // Check if current user is a patient
 async function checkPatientStatus() {
     try {
@@ -1816,36 +1852,58 @@ async function showDoctorDetails(doctorAddress) {
 async function bookAppointment(event) {
     event.preventDefault();
     
+    const doctorAddress = document.getElementById('appointment-doctor').value;
+    const dateInput = document.getElementById('appointment-date').value;
+    const timeInput = document.getElementById('appointment-time').value;
+    
+    if (!doctorAddress || !dateInput || !timeInput) {
+        showToast('错误 | Error', '请填写所有必填字段 | Please fill in all required fields');
+        return;
+    }
+    
+    // 验证时间是否在当前时间之后
+    if (!(await validateAppointmentTime(dateInput, timeInput))) {
+        return;
+    }
+    
     try {
-        const doctorAddress = document.getElementById('appointment-doctor').value;
-        const dateInput = document.getElementById('appointment-date').value;
+        // 将日期和时间转换为时间戳
+        const appointmentDate = new Date(`${dateInput}T${timeInput}`);
+        const timestamp = Math.floor(appointmentDate.getTime() / 1000);
         
-        // 验证输入
-        if (!doctorAddress || !dateInput) {
-            showToast('错误 | Error', '请填写所有必填字段 | Please fill all required fields');
+        // 检查医生是否在该日期工作
+        const isWorking = await contract.methods.isDoctorWorkingOnDate(doctorAddress, timestamp).call();
+        if (!isWorking) {
+            showToast('错误 | Error', '医生在该日期不工作 | Doctor is not working on this date');
             return;
         }
         
-        // Convert date to timestamp (seconds)
-        const date = Math.floor(new Date(dateInput).getTime() / 1000);
-        
-        // Get doctor's fee
-        const details = await contract.methods.getDoctorDetails(doctorAddress).call();
-        const fee = details.appointmentFee;
-        
-        // Check if doctor is available
-        const isAvailable = await contract.methods.isDoctorAvailable(doctorAddress, date).call();
+        // 检查医生是否有空
+        const isAvailable = await contract.methods.isDoctorAvailable(doctorAddress, timestamp).call();
         if (!isAvailable) {
-            showToast('错误 | Error', '医生在该日期不可用 | Doctor is not available on this date');
+            showToast('错误 | Error', '医生在该日期已约满 | Doctor is fully booked on this date');
             return;
         }
         
-        await contract.methods.bookAppointment(doctorAddress, date)
-            .send({ from: currentAccount, value: fee });
+        // 获取预约费用
+        const doctorDetails = await contract.methods.getDoctorDetails(doctorAddress).call();
+        const fee = doctorDetails.appointmentFee;
+        
+        // 发送预约交易
+        await contract.methods.bookAppointment(doctorAddress, timestamp)
+            .send({ 
+                from: currentAccount,
+                value: fee,
+                gas: 500000
+            });
         
         showToast('成功 | Success', '预约成功 | Appointment booked successfully');
         event.target.reset();
-        document.getElementById('book-appointment-form').classList.add('d-none');
+        document.getElementById('working-days-info').classList.add('d-none');
+        document.getElementById('fee-info').classList.add('d-none');
+        
+        // 刷新预约列表
+        getPatientAppointments();
     } catch (error) {
         showToast('错误 | Error', `预约失败: ${error.message} | Booking failed: ${error.message}`);
         console.error(error);
