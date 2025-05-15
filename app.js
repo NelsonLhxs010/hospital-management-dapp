@@ -1055,36 +1055,29 @@ let toastBootstrap;
 let doctorDetailsModal;
 let appointmentDetailsModal;
 
+// Initialize the application when the window loads
 window.addEventListener('load', async () => {
-    // 初始化Bootstrap toast和模态框
+    // Initialize Bootstrap toast and modals
     toast = document.getElementById('toast');
     toastBootstrap = new bootstrap.Toast(toast);
+    doctorDetailsModal = new bootstrap.Modal(document.getElementById('doctorDetailsModal'));
+    appointmentDetailsModal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
     
-    const doctorDetailsModalEl = document.getElementById('doctorDetailsModal');
-    if (doctorDetailsModalEl) {
-        doctorDetailsModal = new bootstrap.Modal(doctorDetailsModalEl);
-    }
-    
-    const appointmentDetailsModalEl = document.getElementById('appointmentDetailsModal');
-    if (appointmentDetailsModalEl) {
-        appointmentDetailsModal = new bootstrap.Modal(appointmentDetailsModalEl);
-    }
-    
-    // 设置事件监听器
+    // Set up event listeners
     document.getElementById('connect-wallet').addEventListener('click', connectWallet);
     document.getElementById('director-btn').addEventListener('click', () => selectRole('director'));
     document.getElementById('doctor-btn').addEventListener('click', () => selectRole('doctor'));
     document.getElementById('patient-btn').addEventListener('click', () => selectRole('patient'));
     
-    // 设置表单监听器
+    // Set up form event listeners
     setupFormListeners();
     
-    // 检查MetaMask是否安装
+    // Check if MetaMask is installed
     if (window.ethereum) {
         try {
-            // 请求帐户访问权限
+            // Request account access if needed
             web3 = new Web3(window.ethereum);
-            // 检查是否已连接
+            // Check if already connected
             accounts = await web3.eth.getAccounts();
             if (accounts.length > 0) {
                 currentAccount = accounts[0];
@@ -1098,7 +1091,6 @@ window.addEventListener('load', async () => {
         showToast('警告 | Warning', '请安装 MetaMask 钱包 | Please install MetaMask wallet');
     }
 });
-
 
 // Connect wallet function
 async function connectWallet() {
@@ -1119,23 +1111,10 @@ async function connectWallet() {
 // Function called after wallet is connected
 async function onWalletConnected() {
     try {
-        // 确保 web3 在这里正确初始化
-        if (typeof window.ethereum !== 'undefined') {
-            web3 = new Web3(window.ethereum);
-            console.log("Web3 initialized successfully");
-        } else {
-            throw new Error("Ethereum provider not found");
-        }
-        
-        // 确保 contractABI 和 contractAddress 已定义
-        if (!contractABI || !contractAddress) {
-            throw new Error("Contract ABI or address is not defined");
-        }
-        // 初始化合约
+        // Initialize contract
         contract = new web3.eth.Contract(contractABI, contractAddress);
-        console.log("Contract initialized with address:", contractAddress);
         
-        // 更新 UI
+        // Update UI
         document.getElementById('wallet-status').innerHTML = `
             <span>钱包已连接 | Wallet connected</span><br>
             <small>${currentAccount}</small>
@@ -1143,29 +1122,26 @@ async function onWalletConnected() {
         document.getElementById('wallet-status').classList.remove('alert-warning');
         document.getElementById('wallet-status').classList.add('alert-success');
         
-        // 隐藏连接按钮
+        // Hide connect button
         document.getElementById('connect-wallet').style.display = 'none';
         
-        // 监听账户变化
+        // Listen for account changes
         window.ethereum.on('accountsChanged', function (accounts) {
             currentAccount = accounts[0];
             resetUI();
             showToast('通知 | Notification', '钱包账户已更改 | Wallet account changed');
         });
         
-        // 检查用户是否是院长
+        // Check if user is a director
         const director = await contract.methods.director().call();
-        console.log("Director address:", director);
-        console.log("Current account:", currentAccount);
         if (currentAccount.toLowerCase() === director.toLowerCase()) {
             selectRole('director');
         }
     } catch (error) {
-        showToast('错误 | Error', `连接到合约失败: ${error.message} | Failed to connect to contract: ${error.message}`);
-        console.error("Error in onWalletConnected:", error);
+        showToast('错误 | Error', '连接到合约失败 | Failed to connect to contract');
+        console.error(error);
     }
 }
-
 
 // Set up all form event listeners
 function setupFormListeners() {
@@ -1181,7 +1157,7 @@ function setupFormListeners() {
     document.getElementById('get-doctor-appointments-btn').addEventListener('click', getDoctorAppointments);
     
     // 添加新的取消预约和完成预约按钮监听器
-    document.getElementById('cancel-appointment-btn')?.addEventListener('click', cancelAppointment);
+
     document.getElementById('complete-appointment-btn')?.addEventListener('click', completeAppointment);
     
     // Patient forms
@@ -1460,71 +1436,63 @@ async function addMedication(event) {
     }
 }
 
-async function getPatientAppointments() {
+// Get doctor's appointments
+async function getDoctorAppointments() {
     try {
-        const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
+        const appointments = await contract.methods.getDoctorAppointments().call({ from: currentAccount });
         
-        const appointmentsElement = document.getElementById('patient-appointments');
+        const appointmentsElement = document.getElementById('doctor-appointments');
         if (appointments.length === 0) {
             appointmentsElement.innerHTML = '<div class="alert alert-info">没有预约记录 | No appointments found</div>';
+            // 隐藏完成预约表单
+            document.getElementById('complete-appointment-form').classList.add('d-none');
             return;
         }
         
-        let html = '';
-        for (let i = 0; i < appointments.length; i++) {
-            const appointment = appointments[i];
-            const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
+        let html = '<div class="list-group">';
+        for (const appointment of appointments) {
+            const status = appointment.completed ? 
+                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
+                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
             
-            // 添加对已取消预约的处理
-            let status;
-            if (appointment.cancelled) {
-                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
-            } else if (appointment.completed) {
-                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
-            } else {
-                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
-            }
+            const date = formatTimestamp(appointment.date);
             
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${i} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>医生 | Doctor:</strong> ${formatAddress(appointment.doctor)}</p>
-                            <p class="mb-1"><strong>专业 | Specialty:</strong> ${doctorDetails.specialty}</p>
-                            <p class="mb-1"><strong>日期 | Date:</strong> ${formatTimestamp(appointment.date)}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>费用 | Fee:</strong> ${appointment.fee} Wei</p>
-                            ${appointment.completed && !appointment.cancelled ? `
-                            <button class="btn btn-sm btn-primary rate-btn mt-2" 
-                                data-doctor="${appointment.doctor}" 
-                                data-id="${i}">
-                                评价医生 | Rate Doctor
-                            </button>` : ''}
-                        </div>
+                    <div class="d-flex w-100 justify-content-between">
+                        <p class="mb-1">患者: ${formatAddress(appointment.patient)}</p>
+                        <small>预约费用: ${appointment.fee} Wei</small>
                     </div>
+                    <p class="mb-1">日期: ${date}</p>
+                    ${!appointment.completed ? `
+                    <div class="d-flex justify-content-end mt-2 gap-2">
+                        <button class="btn btn-sm btn-success complete-btn" 
+                                data-patient="${appointment.patient}" 
+                                data-id="${appointment.appointmentId}">
+                            完成预约 | Complete
+                        </button>
+                    </div>` : ''}
                 </div>
             `;
         }
+        html += '</div>';
         
         appointmentsElement.innerHTML = html;
         
-        // 为评价按钮添加事件监听器
-        document.querySelectorAll('.rate-btn').forEach(button => {
+        // 显示完成预约表单
+        document.getElementById('complete-appointment-form').classList.remove('d-none');
+        
+        // 为完成按钮添加事件监听器
+        document.querySelectorAll('.complete-btn').forEach(button => {
             button.addEventListener('click', function() {
-                const doctorAddress = this.getAttribute('data-doctor');
+                const patientAddress = this.getAttribute('data-patient');
                 const appointmentId = this.getAttribute('data-id');
                 
-                document.getElementById('rate-doctor-address').value = doctorAddress;
-                document.getElementById('rate-appointment-id').value = appointmentId;
-                
-                // 滚动到评价表单
-                document.getElementById('rate-doctor-form').scrollIntoView({
-                    behavior: 'smooth'
-                });
+                document.getElementById('complete-patient-address').value = patientAddress;
+                document.getElementById('complete-appointment-id').value = appointmentId;
             });
         });
     } catch (error) {
@@ -1534,31 +1502,6 @@ async function getPatientAppointments() {
 }
 
 
-// 取消预约函数
-async function cancelAppointment() {
-    try {
-        const patientAddress = document.getElementById('cancel-patient-address').value;
-        const appointmentId = document.getElementById('cancel-appointment-id').value;
-        
-        if (!patientAddress || !appointmentId) {
-            showToast('错误 | Error', '请提供患者地址和预约ID | Please provide patient address and appointment ID');
-            return;
-        }
-        
-        // 使用更高的gas限制来确保交易有足够的gas完成
-        await contract.methods.cancelAppointment(patientAddress, appointmentId)
-            .send({ 
-                from: currentAccount,
-                gas: 500000 // 设置较高的gas限制
-            });
-        
-        showToast('成功 | Success', '预约已取消 | Appointment cancelled successfully');
-        getDoctorAppointments(); // 刷新预约列表
-    } catch (error) {
-        showToast('错误 | Error', `取消预约失败: ${error.message} | Failed to cancel appointment: ${error.message}`);
-        console.error(error);
-    }
-}
 
 // 完成预约函数
 async function completeAppointment() {
@@ -1794,7 +1737,17 @@ async function bookAppointment(event) {
         }
         
         // Convert date to timestamp (seconds)
-        const date = Math.floor(new Date(dateInput).getTime() / 1000);
+        const selectedDate = new Date(dateInput);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // 设置为今天的开始时间
+        
+        // 检查是否是过去的日期
+        if (selectedDate < today) {
+            showToast('错误 | Error', '不能预约过去的日期 | Cannot book appointments for past dates');
+            return;
+        }
+        
+        const date = Math.floor(selectedDate.getTime() / 1000);
         
         // Get doctor's fee
         const details = await contract.methods.getDoctorDetails(doctorAddress).call();
@@ -1818,7 +1771,6 @@ async function bookAppointment(event) {
         console.error(error);
     }
 }
-
 // Get patient's medical record
 async function getMedicalRecord() {
     try {
@@ -1837,6 +1789,7 @@ async function getMedicalRecord() {
     }
 }
 
+// Get patient's appointments
 async function getPatientAppointments() {
     try {
         const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
@@ -1848,24 +1801,16 @@ async function getPatientAppointments() {
         }
         
         let html = '';
-        for (let i = 0; i < appointments.length; i++) {
-            const appointment = appointments[i];
+        for (const appointment of appointments) {
             const doctorDetails = await contract.methods.getDoctorDetails(appointment.doctor).call();
-            
-            // 添加对已取消预约的处理
-            let status;
-            if (appointment.cancelled) {
-                status = '<span class="badge bg-danger status-badge">已取消 | Cancelled</span>';
-            } else if (appointment.completed) {
-                status = '<span class="badge bg-success status-badge">已完成 | Completed</span>';
-            } else {
-                status = '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
-            }
+            const status = appointment.completed ? 
+                '<span class="badge bg-success status-badge">已完成 | Completed</span>' : 
+                '<span class="badge bg-warning text-dark status-badge">等待中 | Pending</span>';
             
             html += `
                 <div class="appointment-card">
                     <div class="d-flex w-100 justify-content-between align-items-center">
-                        <h5 class="mb-1">预约ID: ${i} ${status}</h5>
+                        <h5 class="mb-1">预约ID: ${appointment.appointmentId} ${status}</h5>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -1875,10 +1820,10 @@ async function getPatientAppointments() {
                         </div>
                         <div class="col-md-6">
                             <p class="mb-1"><strong>费用 | Fee:</strong> ${appointment.fee} Wei</p>
-                            ${appointment.completed && !appointment.cancelled ? `
+                            ${appointment.completed ? `
                             <button class="btn btn-sm btn-primary rate-btn mt-2" 
                                 data-doctor="${appointment.doctor}" 
-                                data-id="${i}">
+                                data-id="${appointment.appointmentId}">
                                 评价医生 | Rate Doctor
                             </button>` : ''}
                         </div>
@@ -1910,8 +1855,7 @@ async function getPatientAppointments() {
     }
 }
 
-
-// 修改rateDoctor函数添加对已取消预约的验证
+// 评价医生函数
 async function rateDoctor(event) {
     event.preventDefault();
     
@@ -1923,21 +1867,6 @@ async function rateDoctor(event) {
         if (!doctorAddress || !appointmentId || !rating) {
             showToast('错误 | Error', '请提供所有必填字段 | Please provide all required fields');
             return;
-        }
-        
-        // 获取预约信息验证预约是否已取消
-        const appointments = await contract.methods.getMyAppointments().call({ from: currentAccount });
-        if (appointmentId < appointments.length) {
-            const appointment = appointments[appointmentId];
-            if (appointment.cancelled) {
-                showToast('错误 | Error', '不能评价已取消的预约 | Cannot rate cancelled appointments');
-                return;
-            }
-            
-            if (!appointment.completed) {
-                showToast('错误 | Error', '只能评价已完成的预约 | Can only rate completed appointments');
-                return;
-            }
         }
         
         await contract.methods.rateDoctor(doctorAddress, appointmentId, rating)
@@ -1967,19 +1896,12 @@ async function verifyDoctor(doctorAddress) {
     }
 }
 
-// 修改显示预约详情函数以显示已取消状态
+// 显示预约详情
 function showAppointmentDetails(appointment, doctorDetails, patientDetails) {
     const modalContent = document.getElementById('appointment-details-content');
-    
-    // 更新状态显示处理
-    let status;
-    if (appointment.cancelled) {
-        status = '<span class="badge bg-danger">已取消 | Cancelled</span>';
-    } else if (appointment.completed) {
-        status = '<span class="badge bg-success">已完成 | Completed</span>'; 
-    } else {
-        status = '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
-    }
+    const status = appointment.completed ? 
+        '<span class="badge bg-success">已完成 | Completed</span>' : 
+        '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
     
     modalContent.innerHTML = `
         <div class="text-center mb-3">
@@ -2014,7 +1936,6 @@ function showAppointmentDetails(appointment, doctorDetails, patientDetails) {
     
     appointmentDetailsModal.show();
 }
-
 
 // 检查当前区块链网络
 async function checkNetwork() {
