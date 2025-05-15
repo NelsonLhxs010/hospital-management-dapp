@@ -1239,8 +1239,8 @@ function formatWorkingDays(binaryDays) {
         return "Unknown";
     }
     
-    const days = ["周一", "周二", "周三", "周四", "周五", "周六","周日"];
-    const englishDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat","Sun"];
+    const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const englishDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     
     let result = "";
     let englishResult = "";
@@ -1670,15 +1670,6 @@ async function listAllDoctors() {
                 
                 document.getElementById('appointment-doctor').value = doctorAddress;
                 document.getElementById('fee-label').textContent = `费用 | Fee: ${fee} Wei`;
-                
-                // Set minimum date to today
-                const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                const formattedDate = `${yyyy}-${mm}-${dd}T00:00`;
-                document.getElementById('appointment-date').min = formattedDate;
-                
                 document.getElementById('book-appointment-form').classList.remove('d-none');
                 
                 // 滚动到预约表单
@@ -1756,15 +1747,6 @@ async function showDoctorDetails(doctorAddress) {
             
             document.getElementById('appointment-doctor').value = doctorAddress;
             document.getElementById('fee-label').textContent = `费用 | Fee: ${fee} Wei`;
-            
-            // Set minimum date to today
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            const formattedDate = `${yyyy}-${mm}-${dd}T00:00`;
-            document.getElementById('appointment-date').min = formattedDate;
-            
             document.getElementById('book-appointment-form').classList.remove('d-none');
             
             // 关闭模态框
@@ -1797,13 +1779,6 @@ async function bookAppointment(event) {
         
         // Convert date to timestamp (seconds)
         const date = Math.floor(new Date(dateInput).getTime() / 1000);
-        
-        // Check if the appointment date is in the future
-        const now = Math.floor(Date.now() / 1000);
-        if (date <= now) {
-            showToast('错误 | Error', '预约日期必须是未来的日期 | Appointment date must be in the future');
-            return;
-        }
         
         // Get doctor's fee
         const details = await contract.methods.getDoctorDetails(doctorAddress).call();
@@ -1953,6 +1928,34 @@ async function verifyDoctor(doctorAddress) {
     }
 }
 
+// 显示预约详情
+function showAppointmentDetails(appointment, doctorDetails, patientDetails) {
+    const modalContent = document.getElementById('appointment-details-content');
+    const status = appointment.completed ? 
+        '<span class="badge bg-success">已完成 | Completed</span>' : 
+        '<span class="badge bg-warning text-dark">等待中 | Pending</span>';
+    
+    modalContent.innerHTML = `
+        <div class="text-center mb-3">
+            <h4>预约详情 | Appointment Details</h4>
+            <div>${status}</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-5 fw-bold">预约ID | ID:</div>
+            <div class="col-7">${appointment.appointmentId}</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-5 fw-bold">患者 | Patient:</div>
+            <div class="col-7">${formatAddress(appointment.patient)}</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-5 fw-bold">医生 | Doctor:</div>
+            <div class="col-7">${formatAddress(appointment.doctor)}</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-5 fw-bold">专业 | Specialty:</div>
+            <div class="col-7">${doctorDetails?.specialty || '未知 | Unknown'}</div>
+        </div>
         <div class="row mb-2">
             <div class="col-5 fw-bold">日期 | Date:</div>
             <div class="col-7">${formatTimestamp(appointment.date)}</div>
@@ -1961,251 +1964,146 @@ async function verifyDoctor(doctorAddress) {
             <div class="col-5 fw-bold">费用 | Fee:</div>
             <div class="col-7">${appointment.fee} Wei</div>
         </div>
-        <div class="row mb-2">
-            <div class="col-5 fw-bold">状态 | Status:</div>
-            <div class="col-7">${status}</div>
-        </div>
     `;
-
-    // Show the appointment details modal
+    
     appointmentDetailsModal.show();
 }
 
-// Add the remaining functions and event listeners as needed
-
-// ==================== UTILITY FUNCTIONS ====================
-
-// Format a blockchain timestamp to a readable date and time
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp * 1000);
-    return new Intl.DateTimeFormat('default', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric'
-    }).format(date);
-}
-
-// Format an Ethereum address to a shorter version
-function formatAddress(address) {
-    return address.substring(0, 6) + '...' + address.substring(address.length - 4);
-}
-
-// Format working days binary string to readable text
-function formatWorkingDays(workingDays) {
-    const days = [ '周一 | Mon', '周二 | Tue', '周三 | Wed', '周四 | Thu', '周五 | Fri', '周六 | Sat'，'周日 | Sun'];
-    let result = [];
-    
-    for (let i = 0; i < workingDays.length; i++) {
-        if (workingDays[i] === '1') {
-            result.push(days[i]);
+// 检查当前区块链网络
+async function checkNetwork() {
+    try {
+        const networkId = await web3.eth.net.getId();
+        let networkName;
+        
+        switch(networkId) {
+            case 1:
+                networkName = "以太坊主网 | Ethereum Mainnet";
+                break;
+            case 3:
+                networkName = "Ropsten测试网 | Ropsten Testnet";
+                break;
+            case 4:
+                networkName = "Rinkeby测试网 | Rinkeby Testnet";
+                break;
+            case 5:
+                networkName = "Goerli测试网 | Goerli Testnet";
+                break;
+            case 42:
+                networkName = "Kovan测试网 | Kovan Testnet";
+                break;
+            case 1337:
+                networkName = "本地网络 | Local Network";
+                break;
+            default:
+                networkName = `未知网络ID: ${networkId} | Unknown Network ID: ${networkId}`;
         }
+        
+        console.log(`当前连接到: ${networkName} | Connected to: ${networkName}`);
+        return networkName;
+    } catch (error) {
+        console.error("检查网络失败 | Failed to check network:", error);
+        return "未知网络 | Unknown Network";
     }
-    
-    return result.join(', ');
 }
 
-// Format rating from contract (which is multiplied by 100) to display stars
-function formatRating(averageRating, ratingCount) {
-    if (ratingCount == 0) {
-        return '无评分 | No ratings yet';
-    }
-    
-    // Convert from contract format (multiplied by 100) to decimal
-    const rating = averageRating / 100;
-    const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(5 - Math.round(rating));
-    return `${stars} (${rating.toFixed(2)}, ${ratingCount} 评分 | ratings)`;
-}
-
-// Show a toast notification
-function showToast(title, message) {
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toast-title');
-    const toastMessage = document.getElementById('toast-message');
-    
-    toastTitle.textContent = title;
-    toastMessage.textContent = message;
-    
-    const bsToast = new bootstrap.Toast(toast);
-    bsToast.show();
-}
-
-// ==================== WEB3 INTEGRATION ====================
-
-// Web3 variables
-let web3;
-let contract;
-let currentAccount;
-
-// The ABI of the smart contract (will be filled in from the contract)
-const contractABI = [
-    // Your contract ABI will go here
-    // This should be copied from your compiled contract
-];
-
-// The address of the deployed contract
-const contractAddress = '0x0'; // Replace with your contract address
-
-// Initialize Web3
-async function initWeb3() {
-    if (window.ethereum) {
-        try {
-            web3 = new Web3(window.ethereum);
-            
-            // Request account access if needed
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-            
-            // Get the connected accounts
-            const accounts = await web3.eth.getAccounts();
-            currentAccount = accounts[0];
-            
-            // Initialize contract
-            contract = new web3.eth.Contract(contractABI, contractAddress);
-            
-            // Update UI
-            updateWalletStatus();
-            checkUserRole();
-            
-            // Listen for account changes
-            window.ethereum.on('accountsChanged', function (accounts) {
-                currentAccount = accounts[0];
-                updateWalletStatus();
-                checkUserRole();
-            });
-            
-            return true;
-        } catch (error) {
-            console.error("User denied account access or error occurred:", error);
-            updateWalletStatus(false);
+// 检查区块链同步状态
+async function checkSyncStatus() {
+    try {
+        const syncStatus = await web3.eth.isSyncing();
+        if (syncStatus) {
+            console.log("区块链正在同步 | Blockchain is syncing", syncStatus);
             return false;
         }
-    } else if (window.web3) {
-        // Legacy dapp browsers
-        web3 = new Web3(window.web3.currentProvider);
         return true;
-    } else {
-        updateWalletStatus(false, "需要安装MetaMask | Please install MetaMask");
+    } catch (error) {
+        console.error("检查同步状态失败 | Failed to check sync status:", error);
         return false;
     }
 }
 
-// Update the wallet connection status in the UI
-function updateWalletStatus(isConnected = true, message = null) {
-    const statusElement = document.getElementById('wallet-status');
-    const connectButton = document.getElementById('connect-wallet');
-    
-    if (isConnected && currentAccount) {
-        statusElement.textContent = `已连接: ${currentAccount} | Connected: ${currentAccount}`;
-        statusElement.classList.remove('alert-warning', 'alert-danger');
-        statusElement.classList.add('alert-success');
-        connectButton.textContent = '已连接 | Connected';
-        connectButton.disabled = true;
-    } else {
-        statusElement.textContent = message || '请连接您的钱包 | Please connect your wallet';
-        statusElement.classList.remove('alert-success');
-        statusElement.classList.add('alert-warning');
-        connectButton.textContent = '连接钱包 | Connect Wallet';
-        connectButton.disabled = false;
-    }
-}
+// 应用初始化函数 - 将在页面加载时调用
+window.addEventListener('load', initApp);
 
-// Check user's role (director, doctor, or patient)
-async function checkUserRole() {
-    if (!currentAccount || !contract) {
-        return;
-    }
+async function initApp() {
+    // 初始化UI元素
+    initializeUIElements();
     
-    try {
-        // Check if user is director
-        const director = await contract.methods.director().call();
-        const isDirector = director.toLowerCase() === currentAccount.toLowerCase();
-        
-        // Check if user is a doctor
-        const doctor = await contract.methods.doctors(currentAccount).call();
-        const isDoctor = doctor.isActive;
-        
-        // Check if user is a patient
-        const patient = await contract.methods.patients(currentAccount).call();
-        const isPatient = patient.exists;
-        
-        // Highlight the appropriate role button
-        document.getElementById('director-btn').classList.toggle('active', isDirector);
-        document.getElementById('doctor-btn').classList.toggle('active', isDoctor);
-        document.getElementById('patient-btn').classList.toggle('active', isPatient);
-        
-        // If user has at least one role, show the corresponding section
-        if (isDirector) {
-            showSection('director-section');
-        } else if (isDoctor) {
-            showSection('doctor-section');
-            checkDoctorStatus();
-        } else if (isPatient) {
-            showSection('patient-section');
-            checkPatientStatus();
-        } else {
-            // If user has no role, default to patient section for registration
-            showSection('patient-section');
-            checkPatientStatus();
+    // 检查MetaMask是否安装
+    if (window.ethereum) {
+        try {
+            // 请求帐户访问权限
+            web3 = new Web3(window.ethereum);
+            
+            // 检查是否已连接
+            accounts = await web3.eth.getAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+                
+                // 检查网络和同步状态
+                const networkName = await checkNetwork();
+                const isSynced = await checkSyncStatus();
+                
+                if (isSynced) {
+                    onWalletConnected();
+                } else {
+                    showToast('警告 | Warning', '区块链正在同步，某些功能可能不可用 | Blockchain is syncing, some features may be unavailable');
+                }
+            }
+        } catch (error) {
+            showToast('错误 | Error', '无法连接到区块链网络 | Unable to connect to blockchain network');
+            console.error(error);
         }
-    } catch (error) {
-        console.error("Error checking user role:", error);
+    } else {
+        showToast('警告 | Warning', '请安装 MetaMask 钱包 | Please install MetaMask wallet');
     }
 }
 
-// Show a specific section and hide others
-function showSection(sectionId) {
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-    });
+// 初始化UI元素
+function initializeUIElements() {
+    // 初始化Bootstrap toast和模态框
+    toast = document.getElementById('toast');
+    if (toast) {
+        toastBootstrap = new bootstrap.Toast(toast);
+    }
     
-    document.getElementById(sectionId).classList.add('active');
+    const doctorDetailsModalEl = document.getElementById('doctorDetailsModal');
+    if (doctorDetailsModalEl) {
+        doctorDetailsModal = new bootstrap.Modal(doctorDetailsModalEl);
+    }
+    
+    const appointmentDetailsModalEl = document.getElementById('appointmentDetailsModal');
+    if (appointmentDetailsModalEl) {
+        appointmentDetailsModal = new bootstrap.Modal(appointmentDetailsModalEl);
+    }
+    
+    // 设置事件监听器
+    setupEventListeners();
 }
 
-// ==================== INITIALIZATION AND EVENT LISTENERS ====================
-
-// Initialize Modal instances
-const doctorDetailsModal = new bootstrap.Modal(document.getElementById('doctorDetailsModal'));
-const appointmentDetailsModal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
-
-// Document ready function
-document.addEventListener('DOMContentLoaded', async function() {
-    // Initialize Web3
-    document.getElementById('connect-wallet').addEventListener('click', initWeb3);
+// 设置事件监听器
+function setupEventListeners() {
+    // 钱包连接按钮
+    const connectWalletBtn = document.getElementById('connect-wallet');
+    if (connectWalletBtn) {
+        connectWalletBtn.addEventListener('click', connectWallet);
+    }
     
-    // Role selection buttons
-    document.getElementById('director-btn').addEventListener('click', () => showSection('director-section'));
-    document.getElementById('doctor-btn').addEventListener('click', () => {
-        showSection('doctor-section');
-        checkDoctorStatus();
-    });
-    document.getElementById('patient-btn').addEventListener('click', () => {
-        showSection('patient-section');
-        checkPatientStatus();
-    });
+    // 角色选择按钮
+    const directorBtn = document.getElementById('director-btn');
+    const doctorBtn = document.getElementById('doctor-btn');
+    const patientBtn = document.getElementById('patient-btn');
     
-    // Director forms
-    document.getElementById('add-doctor-form').addEventListener('submit', addDoctor);
-    document.getElementById('revoke-doctor-form').addEventListener('submit', revokeDoctor);
-    document.getElementById('get-stats-btn').addEventListener('click', getHospitalStats);
+    if (directorBtn) {
+        directorBtn.addEventListener('click', () => selectRole('director'));
+    }
+    if (doctorBtn) {
+        doctorBtn.addEventListener('click', () => selectRole('doctor'));
+    }
+    if (patientBtn) {
+        patientBtn.addEventListener('click', () => selectRole('patient'));
+    }
     
-    // Doctor forms
-    document.getElementById('set-fee-form').addEventListener('submit', setAppointmentFee);
-    document.getElementById('add-patient-form').addEventListener('submit', addPatient);
-    document.getElementById('add-medication-form').addEventListener('submit', addMedication);
-    document.getElementById('get-doctor-appointments-btn').addEventListener('click', getDoctorAppointments);
-    document.getElementById('cancel-appointment-btn').addEventListener('click', cancelAppointment);
-    document.getElementById('complete-appointment-btn').addEventListener('click', completeAppointment);
-    
-    // Patient forms
-    document.getElementById('register-patient-form').addEventListener('submit', registerAsSelfPatient);
-    document.getElementById('list-doctors-btn').addEventListener('click', listAllDoctors);
-    document.getElementById('book-appointment-form').addEventListener('submit', bookAppointment);
-    document.getElementById('get-medical-record-btn').addEventListener('click', getMedicalRecord);
-    document.getElementById('get-patient-appointments-btn').addEventListener('click', getPatientAppointments);
-    document.getElementById('rate-doctor-form').addEventListener('submit', rateDoctor);
-    
-    // Try to initialize Web3 automatically
-    initWeb3();
-});
+    // 设置表单监听器
+    setupFormListeners();
+}
 
