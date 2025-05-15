@@ -1763,6 +1763,7 @@ async function showDoctorDetails(doctorAddress) {
     }
 }
 
+
 // Book an appointment with a doctor
 async function bookAppointment(event) {
     event.preventDefault();
@@ -1778,7 +1779,16 @@ async function bookAppointment(event) {
         }
         
         // Convert date to timestamp (seconds)
-        const date = Math.floor(new Date(dateInput).getTime() / 1000);
+        const selectedDate = new Date(dateInput);
+        const now = new Date();
+        
+        // 检查预约日期是否在今天之后
+        if (selectedDate <= now) {
+            showToast('错误 | Error', '预约日期必须在今天之后 | Appointment date must be after today');
+            return;
+        }
+        
+        const date = Math.floor(selectedDate.getTime() / 1000);
         
         // Get doctor's fee
         const details = await contract.methods.getDoctorDetails(doctorAddress).call();
