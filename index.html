@@ -87,11 +87,11 @@
                         <div class="mb-3">
                             <label for="doctor-workdays" class="form-label">工作日 | Working Days (7位二进制，如1111100)</label>
                             <input type="text" class="form-control" id="doctor-workdays" 
-                                placeholder="1111100 (周一至周五工作)" required 
+                                placeholder="1111100 (周日至周四工作)" required 
                                 pattern="[0-1]{7}" title="请输入7位二进制数字，1表示工作，0表示不工作">
                             <small class="form-text text-muted">
-                                例如：1111100 表示周一至周五工作，周末休息 | 
-                                Example: 1111100 means working Monday to Friday, weekend off
+                                例如：1111100 表示周日至周4工作 
+                                Example: 1111100 means working Sunday to Thursday
                             </small>
                         </div>
                         <div class="mb-3">
